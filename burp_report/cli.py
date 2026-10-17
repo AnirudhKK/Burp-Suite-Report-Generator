@@ -16,9 +16,12 @@ from rich.panel import Panel
 from rich.prompt import Confirm, IntPrompt, Prompt
 from rich.table import Table
 
-from .config import FINDING_FIELDS, SECTIONS, ReportConfig
+from . import __version__
+from .config import FINDING_FIELDS, OUTPUT_FORMATS, SECTIONS, ReportConfig
+from .docx_export import DOCX_AVAILABLE, DOCX_MISSING, render_docx
 from .parser import CONFIDENCES, SEVERITIES, ScanReport, parse_burp_xml
 from .pdf import available_engine, html_to_pdf
+from .redact import compile_custom
 from .render import (COMMON_DIR, build_findings, filter_issues, list_templates, render_html,
                      resolve_template, valid_color, valid_font)
 
@@ -33,11 +36,13 @@ ACCENT_PRESETS = [
 ]
 FONT_PRESETS = [
     ("Template default", ""),
-    ("Segoe UI / system sans", '"Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif'),
+    ("Inter (modern sans)", '"Inter", "Segoe UI", system-ui, Arial, sans-serif'),
+    ("Source Sans 3 (formal sans)", '"Source Sans 3", "Segoe UI", system-ui, Arial, sans-serif'),
+    ("IBM Plex Sans (technical sans)", '"IBM Plex Sans", "Helvetica Neue", Arial, sans-serif'),
+    ("Source Serif 4 (formal serif)", '"Source Serif 4", Georgia, "Times New Roman", serif'),
+    ("Segoe UI / system", '"Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif'),
     ("Calibri", "Calibri, Carlito, Arial, sans-serif"),
-    ("Arial / Helvetica", "Arial, Helvetica, sans-serif"),
     ("Georgia (serif)", 'Georgia, "Times New Roman", serif'),
-    ("Cambria (serif)", "Cambria, Caladea, Georgia, serif"),
 ]
 
 
@@ -184,7 +189,10 @@ def config_overview(cfg: ReportConfig, scan: ScanReport) -> Table:
          + (f" · {len(cfg.exclude_issue_names)} issue type(s) excluded" if cfg.exclude_issue_names else "")),
         ("7", "Grouping & sorting", ("grouped by issue type" if cfg.group_by_type else "one finding per instance")
          + f" · sort by {cfg.sort_by} · ID prefix '{rx(cfg.finding_id_prefix)}'"),
-        ("8", "Evidence", ev + (f" · max {cfg.max_evidence_chars} chars" if cfg.max_evidence_chars else "")
+        ("8", "Evidence", ev + (" · secrets redacted" if cfg.redact_secrets else " · [yellow]no redaction[/]")
+         + (f" · {len(cfg.redact_custom)} custom redaction(s)" if cfg.redact_custom else "")
+         + (" · payloads highlighted" if cfg.highlight_payloads else "")
+         + (f" · max {cfg.max_evidence_chars} chars" if cfg.max_evidence_chars else "")
          + (f" · max {cfg.max_instances_per_finding} instances/finding" if cfg.max_instances_per_finding else "")),
         ("9", "Summary & text", ("custom executive summary" if cfg.executive_summary else "auto executive summary")
          + (" · scope text" if cfg.scope else "") + (" · footer text" if cfg.footer_text else "")),
@@ -217,15 +225,16 @@ def preview_findings(cfg: ReportConfig, scan: ScanReport) -> None:
 def edit_output(cfg: ReportConfig) -> None:
     engine = available_engine()
     pdf_note = f"[green]PDF engine: {engine}[/]" if engine else "[red]no PDF engine found (see README)[/]"
-    console.print(f"\n[bold]Output format[/]  {pdf_note}")
-    opts = [["html"], ["pdf"], ["html", "pdf"]]
-    current = opts.index(cfg.output_formats) + 1 if cfg.output_formats in opts else 1
-    cfg.output_formats = opts[choose("Format", ["HTML (interactive, single file)", "PDF", "Both HTML and PDF"], current)]
+    docx_note = "" if DOCX_AVAILABLE else f"  [red]{rx(DOCX_MISSING)}[/]"
+    console.print(f"\n[bold]Output format[/]  {pdf_note}{docx_note}")
+    labels = {"html": "HTML (interactive, single file)", "pdf": "PDF", "docx": "Word (.docx, editable)"}
+    picked = toggle_menu("Formats to generate", [(f, labels[f]) for f in OUTPUT_FORMATS], set(cfg.output_formats), True)
+    cfg.output_formats = [f for f in OUTPUT_FORMATS if f in picked]
     if "html" in cfg.output_formats:
         cfg.interactive_html = Confirm.ask("Add search & severity filter controls to the HTML report?",
                                            default=cfg.interactive_html)
     out = Prompt.ask("Output file (extension added automatically)", default=cfg.output_path).strip().strip('"')
-    cfg.output_path = str(Path(out).with_suffix("")) if Path(out).suffix.lower() in (".html", ".pdf", ".htm") else out
+    cfg.output_path = str(Path(out).with_suffix("")) if Path(out).suffix.lower() in (".html", ".pdf", ".htm", ".docx") else out
 
 
 def export_template(src_key: str, dest: Path) -> Path:
@@ -377,6 +386,20 @@ def edit_evidence(cfg: ReportConfig) -> None:
             cfg.response_headers_only = Confirm.ask("  Response headers only (drop bodies)?", default=cfg.response_headers_only)
         cfg.max_evidence_chars = IntPrompt.ask("  Max characters per request/response (0 = unlimited)",
                                                default=cfg.max_evidence_chars)
+        cfg.highlight_payloads = Confirm.ask("  Highlight the payload Burp names in the issue detail?",
+                                             default=cfg.highlight_payloads)
+        cfg.redact_secrets = Confirm.ask("  Redact secrets (cookies, auth headers, tokens, passwords, keys)?",
+                                         default=cfg.redact_secrets)
+        console.print("  [dim]Extra values to redact: one per line, literal text or /regex/ (/regex/i ignores case).[/]")
+        while True:
+            text = ask_multiline("extra values to redact", "\n".join(cfg.redact_custom))
+            lines = [x.strip() for x in text.splitlines() if x.strip()]
+            try:
+                compile_custom(lines)
+                cfg.redact_custom = lines
+                break
+            except ValueError as exc:
+                console.print(f"[red]{rx(str(exc))}[/]")
     cfg.max_instances_per_finding = IntPrompt.ask("Max instances listed per finding (0 = unlimited)",
                                                   default=cfg.max_instances_per_finding)
 
@@ -396,6 +419,12 @@ def generate(scan: ScanReport, cfg: ReportConfig) -> list[Path]:
     base = Path(cfg.output_path).expanduser()
     base.parent.mkdir(parents=True, exist_ok=True)
     for fmt in cfg.output_formats:
+        if fmt == "docx":
+            out = base.with_name(base.name + ".docx")
+            with console.status("Building Word document…"):
+                out.write_bytes(render_docx(scan, cfg))
+            written.append(out)
+            continue
         html = render_html(scan, cfg, fmt)
         if fmt == "html":
             out = base.with_name(base.name + ".html")
@@ -476,15 +505,30 @@ def interactive(scan: ScanReport, cfg: ReportConfig, quick_setup: bool) -> None:
 
 # ---------------------------------------------------------------- entry point
 
+def parse_formats(value: str) -> list[str]:
+    value = value.strip().lower()
+    if value == "both":
+        return ["html", "pdf"]
+    if value == "all":
+        return list(OUTPUT_FORMATS)
+    picked = [v.strip() for v in value.split(",") if v.strip()]
+    bad = [v for v in picked if v not in OUTPUT_FORMATS]
+    if bad or not picked:
+        raise argparse.ArgumentTypeError(f"unknown format {', '.join(bad) or value!r}: use html, pdf, docx, both or all")
+    return [f for f in OUTPUT_FORMATS if f in picked]
+
+
 def build_arg_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="burp-report",
         description="Convert Burp Suite Professional XML issue exports into customisable HTML / PDF reports.",
     )
     p.add_argument("xml", nargs="?", help="Burp Suite XML export (prompted for if omitted)")
+    p.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     p.add_argument("-p", "--profile", help="load settings from a saved JSON profile")
     p.add_argument("-o", "--output", help="output path without extension")
-    p.add_argument("-f", "--format", choices=["html", "pdf", "both"], help="output format")
+    p.add_argument("-f", "--format", type=parse_formats, metavar="FORMATS",
+                   help="html, pdf, docx, both (html+pdf), all, or a comma list such as html,docx")
     p.add_argument("-t", "--template", help="built-in template name or custom template folder")
     p.add_argument("--title", help="report title")
     p.add_argument("--client", help="client name")
@@ -575,11 +619,11 @@ def main(argv: list[str] | None = None) -> int:
         console.print(f"[bold red]Could not load profile:[/] {rx(str(exc))}")
         return 2
     if args.output:
-        cfg.output_path = str(Path(args.output).with_suffix("")) if Path(args.output).suffix.lower() in (".html", ".pdf") else args.output
+        cfg.output_path = str(Path(args.output).with_suffix("")) if Path(args.output).suffix.lower() in (".html", ".pdf", ".docx") else args.output
     if not cfg.output_path:
         cfg.output_path = str(xml_path.with_name(xml_path.stem + "_report"))
     if args.format:
-        cfg.output_formats = ["html", "pdf"] if args.format == "both" else [args.format]
+        cfg.output_formats = args.format
     if args.template:
         cfg.template = args.template
     if args.title:

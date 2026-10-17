@@ -20,6 +20,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, quote, unquote, urlparse
 
 from .config import FINDING_FIELDS, SECTIONS, ReportConfig
+from .docx_export import DOCX_AVAILABLE, DOCX_MISSING, render_docx
 from .parser import CONFIDENCES, SEVERITIES, ScanReport, parse_burp_bytes, parse_burp_xml
 from .pdf import available_engine, html_to_pdf
 from .render import list_templates, render_html, resolve_template
@@ -41,11 +42,13 @@ ACCENTS = [
 ]
 FONTS = [
     ("Template default", ""),
+    ("Inter (modern sans)", '"Inter", "Segoe UI", system-ui, Arial, sans-serif'),
+    ("Source Sans 3 (formal sans)", '"Source Sans 3", "Segoe UI", system-ui, Arial, sans-serif'),
+    ("IBM Plex Sans (technical sans)", '"IBM Plex Sans", "Helvetica Neue", Arial, sans-serif'),
+    ("Source Serif 4 (formal serif)", '"Source Serif 4", Georgia, "Times New Roman", serif'),
     ("Segoe UI / system", '"Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif'),
     ("Calibri", "Calibri, Carlito, Arial, sans-serif"),
-    ("Arial / Helvetica", "Arial, Helvetica, sans-serif"),
     ("Georgia (serif)", 'Georgia, "Times New Roman", serif'),
-    ("Cambria (serif)", "Cambria, Caladea, Georgia, serif"),
 ]
 
 # Injected into preview pages only, so the editor can keep the scroll position across re-renders.
@@ -170,7 +173,7 @@ def make_handler(state: State, token: str, port_ref: list[int]):
             if path in ("/", "/index.html"):
                 return self._send(200, index_html.encode(), "text/html; charset=utf-8",
                                   {"Content-Security-Policy": "default-src 'self'; style-src 'self' 'unsafe-inline'; "
-                                   "script-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; "
+                                   "script-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src data:; "
                                    "frame-src blob: 'self'; object-src 'none'; base-uri 'none'",
                                    "Referrer-Policy": "no-referrer"})
             return self._error("Not found", 404)
@@ -204,6 +207,7 @@ def make_handler(state: State, token: str, port_ref: list[int]):
                         "accents": ACCENTS, "fonts": FONTS,
                         "defaults": asdict(ReportConfig()),
                         "pdf_engine": available_engine(),
+                        "docx_available": DOCX_AVAILABLE, "docx_missing": DOCX_MISSING,
                         "sample_available": SAMPLE_XML.exists(),
                         "scan": scan_summary(state.scan),
                         "profile": state.profile,
@@ -243,6 +247,9 @@ def make_handler(state: State, token: str, port_ref: list[int]):
                             html_to_pdf(render_html(scan, cfg, "pdf"), out)
                             data = out.read_bytes()
                         ctype = "application/pdf"
+                    elif fmt == "docx":
+                        data = render_docx(scan, cfg)
+                        ctype = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                     else:
                         return self._error("Unknown format")
                     disp = "inline" if route == "/api/pdf-preview" else "attachment"

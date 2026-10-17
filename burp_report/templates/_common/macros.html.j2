@@ -1,6 +1,10 @@
 {# Reusable building blocks. Custom templates can import these:
    {% import "macros.html.j2" as m %} #}
 
+{% macro cwe_ids(f) -%}
+{% for id, _ in f.cwes %}cwe-{{ id }} {% endfor %}
+{%- endmacro %}
+
 {% macro sev_badge(sev) -%}
 <span class="badge {{ sev|sev_class }}">{{ sev }}</span>
 {%- endmacro %}
@@ -41,13 +45,13 @@
 <div class="evidence">
   {% if ev.request %}
   <div class="ev-part">
-    <div class="ev-title">Request{% if n %} {{ n }}{% endif %}{% if ev.request_truncated %} <em>(truncated)</em>{% endif %}</div>
+    <div class="ev-title">Request{% if n %} {{ n }}{% endif %}{% if ev.request_truncated %} <em>(truncated)</em>{% endif %}{% if ev.request_marks %} <span class="hl-note"><mark class="hl">payload</mark> highlighted</span>{% endif %}</div>
     <pre class="http">{{ ev.request }}</pre>
   </div>
   {% endif %}
   {% if ev.response %}
   <div class="ev-part">
-    <div class="ev-title">Response{% if n %} {{ n }}{% endif %}{% if ev.redirected %} <em>(after redirect)</em>{% endif %}{% if ev.response_headers_only %} <em>(headers only)</em>{% elif ev.response_truncated %} <em>(truncated)</em>{% endif %}</div>
+    <div class="ev-title">Response{% if n %} {{ n }}{% endif %}{% if ev.redirected %} <em>(after redirect)</em>{% endif %}{% if ev.response_headers_only %} <em>(headers only)</em>{% elif ev.response_truncated %} <em>(truncated)</em>{% endif %}{% if ev.response_marks %} <span class="hl-note"><mark class="hl">payload</mark> highlighted</span>{% endif %}</div>
     <pre class="http">{{ ev.response }}</pre>
   </div>
   {% endif %}
@@ -76,7 +80,7 @@
 
 {% macro finding(f, fields, is_pdf, page_break=false) -%}
 <article class="finding {{ f.severity|sev_class }}{% if page_break %} page-break{% endif %}" id="{{ f.anchor }}"
-         data-severity="{{ f.severity }}" data-search="{{ (f.id ~ ' ' ~ f.name ~ ' ' ~ f.hosts|join(' ') ~ ' ' ~ f.instances|map(attribute='path')|join(' '))|lower }}">
+         data-severity="{{ f.severity }}" data-search="{{ (f.id ~ ' ' ~ f.name ~ ' ' ~ f.hosts|join(' ') ~ ' ' ~ f.instances|map(attribute='path')|join(' ') ~ ' ' ~ cwe_ids(f) ~ ' ' ~ f.owasp|map('first')|join(' '))|lower }}">
   <header class="finding-head">
     <span class="fid">{{ f.id }}</span>
     <h3>{{ f.name }}</h3>
@@ -92,6 +96,12 @@
       <th>Instances</th><td>{{ f.count }}</td>
       <th>Host{{ 's' if f.hosts|length > 1 }}</th><td>{{ f.hosts|select|join(', ') or '—' }}</td>
     </tr>
+    {% if fields.cwe_owasp and f.cwes %}
+    <tr><th>CWE</th><td colspan="3">{% for id, title in f.cwes %}<span class="cwe">CWE-{{ id }}</span>{% if title %} {{ title }}{% endif %}{% if not loop.last %}<br>{% endif %}{% endfor %}</td></tr>
+    {% endif %}
+    {% if fields.cwe_owasp and f.owasp %}
+    <tr><th>OWASP Top 10</th><td colspan="3">{% for code, name in f.owasp %}<span class="owasp-tag">{{ code }}:2021</span> {{ name }}{% if not loop.last %}<br>{% endif %}{% endfor %}</td></tr>
+    {% endif %}
     {% if f.type_id %}<tr><th>Burp issue type</th><td colspan="3">{{ f.type_id }}</td></tr>{% endif %}
   </table>
 

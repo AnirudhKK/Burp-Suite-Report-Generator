@@ -154,6 +154,7 @@ body.drag::after { content: "Drop the Burp XML export to load it"; position: fix
   <button class="btn small" id="saveProfile" title="Download current settings as a JSON profile">Save profile</button>
   <button class="btn small" id="resetCfg" title="Reset all settings to defaults">Reset</button>
   <button class="btn" id="exportHtml" disabled>Export HTML</button>
+  <button class="btn" id="exportDocx" disabled>Export Word</button>
   <button class="btn primary" id="exportPdf" disabled>Export PDF</button>
   <input type="file" id="xmlFile" accept=".xml,text/xml,application/xml" hidden>
   <input type="file" id="profileFile" accept=".json,application/json" hidden>
@@ -269,6 +270,13 @@ body.drag::after { content: "Drop the Burp XML export to load it"; position: fix
           <label class="check"><input type="checkbox" data-bind="include_response"> HTTP responses</label>
           <label class="check"><input type="checkbox" data-bind="response_headers_only"> Response headers only (drop bodies)</label>
           <label class="f">Max characters per message (0 = unlimited) <input type="number" min="0" step="500" data-bind="max_evidence_chars"></label>
+          <label class="check"><input type="checkbox" data-bind="highlight_payloads"> Highlight the payload Burp names in each issue</label>
+          <div class="subhead">Redaction</div>
+          <label class="check"><input type="checkbox" data-bind="redact_secrets"> Redact secrets: cookies, auth headers, tokens, passwords, API keys</label>
+          <label class="f">Extra values to redact
+            <textarea id="redactCustom" rows="3" spellcheck="false" placeholder="One per line: literal text, or /regex/ (/regex/i ignores case)"></textarea>
+          </label>
+          <p class="note">Masked values show as [REDACTED] in the evidence and URLs. Only the report changes; the Burp file is untouched.</p>
         </div>
         <label class="f">Max instances listed per finding (0 = unlimited) <input type="number" min="0" data-bind="max_instances_per_finding"></label>
       </div>
@@ -410,6 +418,7 @@ function syncSimple() {
   });
   $("grouping").value = CFG.group_by_type ? "1" : "0";
   $("evidenceOn").checked = !!CFG.fields.evidence;
+  if (document.activeElement !== $("redactCustom")) $("redactCustom").value = CFG.redact_custom.join("\n");
   $("evidenceOpts").style.opacity = CFG.fields.evidence ? 1 : .45;
 }
 
@@ -581,7 +590,8 @@ function updateHints() {
     (CFG.include_hosts.length ? ` · ${CFG.include_hosts.length} host${CFG.include_hosts.length > 1 ? "s" : ""}` : "") +
     (ex ? ` · ${ex} type${ex > 1 ? "s" : ""} excluded` : "");
   $("hintGroup").textContent = CFG.group_by_type ? "grouped" : "per instance";
-  $("hintEvidence").textContent = CFG.fields.evidence ? (CFG.response_headers_only ? "headers only" : "on") : "off";
+  $("hintEvidence").textContent = !CFG.fields.evidence ? "off" :
+    [CFG.response_headers_only ? "headers only" : "on", CFG.redact_secrets || CFG.redact_custom.length ? "redacted" : "not redacted"].join(" · ");
   $("hintText").textContent = CFG.executive_summary ? "custom" : "auto";
 }
 
@@ -596,7 +606,8 @@ function showFrame() {
   $("htmlFrame").hidden = !has || mode !== "html";
   $("pdfFrame").hidden = !has || mode !== "pdf";
   $("widthSeg").hidden = mode !== "html";
-  $("exportHtml").disabled = $("exportPdf").disabled = !has;
+  $("exportHtml").disabled = $("exportPdf").disabled = $("exportDocx").disabled = !has;
+  $("exportDocx").title = META.docx_available ? "Editable Word document" : META.docx_missing;
 }
 
 function loadFrame(frame, url) {
@@ -707,6 +718,10 @@ function wire() {
   $("grouping").onchange = (e) => { CFG.group_by_type = e.target.value === "1"; changed(); };
   $("evidenceOn").onchange = (e) => { CFG.fields.evidence = e.target.checked; buildSections(); syncSimple(); changed(); };
   $("font").onchange = (e) => { CFG.font_family = e.target.value; changed({thumbs: true}); };
+  $("redactCustom").oninput = (e) => {
+    CFG.redact_custom = e.target.value.split("\n").map((x) => x.trim()).filter(Boolean);
+    changed();
+  };
   $("typeSearch").oninput = filterTypes;
   document.querySelectorAll("[data-all],[data-none]").forEach((b) => b.onclick = () => {
     const all = !!b.dataset.all, which = b.dataset.all || b.dataset.none;
@@ -752,6 +767,14 @@ function wire() {
     status("Exporting HTML…", true);
     try { await download("/api/export", {config: CFG, format: "html"}, "report.html"); status("Exported HTML"); }
     catch (e) { status(""); toast(e.message, true); }
+  };
+  $("exportDocx").onclick = async () => {
+    if (!META.docx_available) return toast(META.docx_missing, true);
+    status("Exporting Word…", true);
+    $("exportDocx").disabled = true;
+    try { await download("/api/export", {config: CFG, format: "docx"}, "report.docx"); status("Exported Word"); }
+    catch (e) { status(""); toast(e.message, true); }
+    finally { $("exportDocx").disabled = !SCAN; }
   };
   $("exportPdf").onclick = async () => {
     status("Exporting PDF…", true);

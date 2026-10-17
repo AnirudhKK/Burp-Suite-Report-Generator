@@ -15,13 +15,14 @@
 <meta name="generator" content="Burp Suite Report Generator">
 <title>{{ meta.title }}{% if meta.client %} – {{ meta.client }}{% endif %}</title>
 <style>
+{{ theme.font_faces }}
 {% include "base.css" %}
 {% block styles %}{% endblock %}
 {% if theme.accent %}:root { --accent: {{ theme.accent }}; }{% endif %}
 {% if theme.font %}:root { --font: {{ theme.font }}; }{% endif %}
 @page {
-  @bottom-left { content: {{ (meta.classification or meta.footer or '')|css_string }}; font: 8pt sans-serif; color: #777; }
-  @bottom-right { content: "Page " counter(page) " of " counter(pages); font: 8pt sans-serif; color: #777; }
+  @bottom-left { content: {{ (meta.classification or meta.footer or '')|css_string }}; font: 8pt {{ theme.font or theme.page_font }}; color: #777; }
+  @bottom-right { content: "Page " counter(page) " of " counter(pages); font: 8pt {{ theme.font or theme.page_font }}; color: #777; }
 }
 </style>
 </head>
@@ -80,6 +81,7 @@
     {% if sections.scope and scope %}<li><a href="#scope">Scope &amp; methodology</a></li>{% endif %}
     {% if sections.risk_chart or sections.findings_table %}<li><a href="#overview">Findings overview</a></li>{% endif %}
     {% if sections.hosts_table %}<li><a href="#hosts">Affected hosts</a></li>{% endif %}
+    {% if sections.owasp_table %}<li><a href="#owasp">OWASP Top 10 mapping</a></li>{% endif %}
     {% if sections.findings %}
     <li><a href="#findings">Detailed findings</a>
       <ol class="toc-findings">
@@ -127,15 +129,15 @@
   {% endif %}
   {% if sections.findings_table %}
   <table class="data summary-table">
-    <thead><tr><th>ID</th><th>Finding</th><th>Severity</th><th>Confidence</th><th class="num">Instances</th></tr></thead>
+    <thead><tr><th>ID</th><th>Finding</th>{% if fields.cwe_owasp %}<th>CWE</th>{% endif %}<th>Severity</th><th>Confidence</th><th class="num">Instances</th></tr></thead>
     <tbody>
     {% for f in findings %}
       <tr data-severity="{{ f.severity }}">
         <td class="fid">{% if sections.findings %}<a href="#{{ f.anchor }}">{{ f.id }}</a>{% else %}{{ f.id }}{% endif %}</td>
-        <td>{{ f.name }}</td><td>{{ m.sev_badge(f.severity) }}</td><td>{{ f.confidence }}</td><td class="num">{{ f.count }}</td>
+        <td>{{ f.name }}</td>{% if fields.cwe_owasp %}<td class="nowrap">{% for id, _ in f.cwes[:2] %}CWE-{{ id }}{% if not loop.last %}<br>{% endif %}{% else %}—{% endfor %}</td>{% endif %}<td>{{ m.sev_badge(f.severity) }}</td><td>{{ f.confidence }}</td><td class="num">{{ f.count }}</td>
       </tr>
     {% else %}
-      <tr><td colspan="5" class="muted">No findings match the selected filters.</td></tr>
+      <tr><td colspan="{{ 6 if fields.cwe_owasp else 5 }}" class="muted">No findings match the selected filters.</td></tr>
     {% endfor %}
     </tbody>
   </table>
@@ -161,6 +163,35 @@
     </tbody>
   </table>
   <p class="muted small">Counts are per issue instance.</p>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block owasp %}
+{% if sections.owasp_table %}
+<section class="section" id="owasp">
+  <h2>OWASP Top 10 mapping</h2>
+  <p class="muted small">Findings mapped to the {{ owasp.edition }} categories using the CWE identifiers in Burp's export.
+    A finding can map to more than one category. {{ owasp.mapped_total }} of {{ total_findings }} finding{{ 's' if total_findings != 1 }} mapped.</p>
+  <table class="data owasp-table">
+    <thead><tr><th>Category</th>{% for s in severities %}<th class="num">{{ s }}</th>{% endfor %}<th>Findings</th></tr></thead>
+    <tbody>
+    {% for r in owasp.rows %}
+      <tr{% if not r.findings %} class="none"{% endif %}>
+        <td><span class="owasp-tag">{{ r.code }}</span> {{ r.name }}</td>
+        {% for s in severities %}<td class="num">{% if r.counts[s] %}<span class="count {{ s|sev_class }}">{{ r.counts[s] }}</span>{% else %}–{% endif %}</td>{% endfor %}
+        <td class="fids">{% for f in r.findings %}{% if sections.findings %}<a class="fid" href="#{{ f.anchor }}">{{ f.id }}</a>{% else %}<span class="fid">{{ f.id }}</span>{% endif %}{{ ', ' if not loop.last }}{% else %}<span class="muted">None</span>{% endfor %}</td>
+      </tr>
+    {% endfor %}
+    {% if owasp.unmapped %}
+      <tr class="unmapped">
+        <td><em>Not mapped</em> <span class="muted small">(no CWE in an OWASP category)</span></td>
+        {% for s in severities %}<td class="num">{% if owasp.unmapped_counts[s] %}<span class="count {{ s|sev_class }}">{{ owasp.unmapped_counts[s] }}</span>{% else %}–{% endif %}</td>{% endfor %}
+        <td class="fids">{% for f in owasp.unmapped %}{% if sections.findings %}<a class="fid" href="#{{ f.anchor }}">{{ f.id }}</a>{% else %}<span class="fid">{{ f.id }}</span>{% endif %}{{ ', ' if not loop.last }}{% endfor %}</td>
+      </tr>
+    {% endif %}
+    </tbody>
+  </table>
 </section>
 {% endif %}
 {% endblock %}
@@ -191,6 +222,7 @@
     <tr><th>Issues included</th><td>{{ total_instances }}{% if scan.filtered_out %} ({{ scan.filtered_out }} excluded by filters){% endif %}</td></tr>
     <tr><th>Severities included</th><td>{{ severities|join(', ') }}</td></tr>
     <tr><th>Confidence levels included</th><td>{{ cfg.confidences|join(', ') }}</td></tr>
+    {% if fields.evidence %}<tr><th>Evidence redaction</th><td>{% if redaction.enabled or redaction.custom %}Enabled: {{ redaction.count }} sensitive value{{ 's' if redaction.count != 1 }} masked as [REDACTED]{% else %}Disabled{% endif %}</td></tr>{% endif %}
     <tr><th>Report generated</th><td>{{ generated_at }}</td></tr>
   </table>
   <h3>Severity ratings</h3>

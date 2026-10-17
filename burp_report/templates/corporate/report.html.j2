@@ -2,10 +2,14 @@
 {% block styles %}
 :root {
   --accent: #1f3a5f;
-  --heading-font: Georgia, "Times New Roman", serif;
+  --font: "Source Sans 3", "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+  --heading-font: "Source Serif 4", Georgia, "Times New Roman", serif;
   --surface: #f4f6f9;
 }
-body { counter-reset: sec; }
+body { counter-reset: sec; font-size: 15.5px; }
+.is-pdf body { font-size: 10.5pt; }
+h1, h2, h3 { font-weight: 600; letter-spacing: -.005em; }
+.cover h1 { font-weight: 600; letter-spacing: -.01em; }
 .section > h2, .toc > h2 { border-bottom: 3px solid var(--accent); padding-bottom: 6px; color: var(--accent); }
 .section > h2::before { counter-increment: sec; content: counter(sec) ". "; }
 .appendix > h2::before { content: none; }

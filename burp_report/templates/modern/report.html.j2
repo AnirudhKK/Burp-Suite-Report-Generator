@@ -10,13 +10,15 @@
   --code-bg: #1b1730;
   --code-text: #e9e6ff;
 }
+body { font-feature-settings: "cv11", "ss03"; letter-spacing: -.003em; }
 .cover { background: linear-gradient(135deg, var(--accent) 0%, #2a1a6e 55%, var(--accent-2) 130%); color: #fff; }
 .is-html .cover { border-radius: 16px; margin-top: 16px; padding: 40px 0; }
-.cover h1 { font-size: 3em; font-weight: 800; letter-spacing: -.02em; }
+.cover h1 { font-size: 3em; font-weight: 750; letter-spacing: -.025em; }
 .cover .subtitle, .cover-meta dt { color: rgba(255,255,255,.75); }
 .cover .classification { color: #fff; border-color: rgba(255,255,255,.7); }
 .cover .logo { background: #fff; padding: 10px 14px; border-radius: 10px; }
-h2 { font-weight: 800; letter-spacing: -.01em; }
+h2 { font-weight: 700; letter-spacing: -.015em; }
+h3 { font-weight: 650; letter-spacing: -.01em; }
 .section > h2, .toc > h2 { display: flex; align-items: center; gap: 10px; }
 .section > h2::before, .toc > h2::before { content: ""; width: 6px; height: 1em; border-radius: 3px; background: linear-gradient(var(--accent), var(--accent-2)); }
 .finding { background: var(--bg); border: 1px solid var(--border); border-left: 6px solid var(--sev-information); border-radius: var(--radius); padding: 18px 22px; box-shadow: 0 1px 3px rgba(30,20,80,.06); }
@@ -51,6 +53,7 @@ pre.http { border-color: transparent; }
   {% if sections.executive_summary %}<a href="#executive-summary">Executive summary</a>{% endif %}
   {% if sections.risk_chart or sections.findings_table %}<a href="#overview">Findings overview</a>{% endif %}
   {% if sections.hosts_table %}<a href="#hosts">Affected hosts</a>{% endif %}
+  {% if sections.owasp_table %}<a href="#owasp">OWASP Top 10</a>{% endif %}
   <hr>
   {% for f in findings %}
   <a href="#{{ f.anchor }}"><span class="dot {{ f.severity|sev_class }}"></span><span>{{ f.name }}</span></a>

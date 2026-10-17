@@ -1,7 +1,9 @@
 # Burp Suite Report Generator
 
-Turns a **Burp Suite Professional XML issue export** into a polished **HTML** and/or **PDF** report,
-through an interactive menu where you choose the template, branding, sections, fields, filters and evidence.
+Turns a **Burp Suite Professional XML issue export** into a polished **HTML**, **PDF** and/or **Word (.docx)**
+report, through an interactive menu where you choose the template, branding, sections, fields, filters and evidence.
+
+Everything runs offline: fonts, the CWE → OWASP Top 10 mapping and all assets ship with the tool.
 
 ## Setup
 
@@ -9,9 +11,24 @@ through an interactive menu where you choose the template, branding, sections, f
 pip install -r requirements.txt
 ```
 
-Python 3.10+ is required. PDF output uses a headless Chromium browser; **Microsoft Edge already ships with
+Python 3.10+ is required. Word export uses `python-docx` (in `requirements.txt`). PDF output uses a headless Chromium browser; **Microsoft Edge already ships with
 Windows**, and Chrome, Chromium or Brave also work. If none of these is installed, set `BURP_REPORT_BROWSER`
 to a Chromium browser executable, or `pip install weasyprint` as a fallback.
+
+### Windows executable (no Python needed)
+
+`Releases/BurpReportGenerator-v1.0.exe` is a single self-contained file. Double-click it to open the web UI, or
+use it from a terminal exactly like `generate_report.py`, for example
+`BurpReportGenerator-v1.0.exe scan.xml -y -f all -o reports\acme`. PDF export still uses the Edge or Chrome
+installed on the machine. Startup takes a few seconds while it unpacks to a temporary folder.
+
+To rebuild it (from the project root, with `requirements.txt` and `pyinstaller` installed):
+
+```powershell
+pyinstaller packaging/BurpReportGenerator.spec --distpath Releases
+```
+
+`packaging/` holds the spec, the Windows version details and the icon (`make_icon.py` redraws it; it needs Pillow).
 
 ## Exporting from Burp
 
@@ -34,12 +51,13 @@ This starts a local server on `127.0.0.1` and opens your browser. The window has
   - **Report details**: title, client, assessor, date, classification, and an uploaded logo.
   - **Sections** and **Finding fields**: checkboxes.
   - **Filters**: severity and confidence chips, a hosts checklist, and a searchable issue-type checklist for dropping false positives.
-  - **Grouping & sorting**, **HTTP evidence**, **Summary & text**.
+  - **Grouping & sorting**, **Summary & text**.
+  - **HTTP evidence**: requests/responses, size limits, payload highlighting and secret redaction (see below).
 - **Right: live preview.** The report re-renders a moment after each change and keeps your scroll position.
   - **Live HTML** shows the interactive HTML report at desktop, tablet or phone width.
   - **PDF** renders the actual PDF, so you can check page breaks before exporting.
 
-**Export HTML** and **Export PDF** download the finished report. **Save profile** and **Load profile** use the same JSON
+**Export HTML**, **Export Word** and **Export PDF** download the finished report. **Save profile** and **Load profile** use the same JSON
 format as the CLI. You can also drag and drop a profile, or a new XML file, onto the window. Your last settings are
 remembered in the browser.
 
@@ -58,14 +76,14 @@ A short quick setup (format, template, title, client) leads to the settings menu
 
 | Key | Setting | What you can customise |
 |---|---|---|
-| 1 | Output | HTML, PDF or both · output path · search/filter toolbar in the HTML report |
+| 1 | Output | any of HTML, PDF and Word · output path · search/filter toolbar in the HTML report |
 | 2 | Template & styling | built-in or custom template · accent colour · font · page break per finding · export a template to edit |
 | 3 | Report details | title, subtitle, client, assessor, company, date, version, classification label, logo |
-| 4 | Sections | cover, contents, executive summary, scope, risk chart, findings table, hosts table, detailed findings, appendix |
-| 5 | Finding fields | description, issue detail, detail items, remediation, references, CWE/CAPEC, affected URLs, evidence |
+| 4 | Sections | cover, contents, executive summary, scope, risk chart, findings table, hosts table, OWASP Top 10 mapping, detailed findings, appendix |
+| 5 | Finding fields | description, issue detail, detail items, remediation, references, CWE/CAPEC, CWE & OWASP category, affected URLs, evidence |
 | 6 | Filters | severities, confidence levels, hosts, individual issue types (e.g. to drop false positives) |
 | 7 | Grouping & sorting | group instances by issue type or list each one · sort order · finding ID prefix |
-| 8 | Evidence | requests and/or responses · headers only · size limit · max instances per finding |
+| 8 | Evidence | requests and/or responses · headers only · size limit · payload highlighting · secret redaction and extra values to redact · max instances per finding |
 | 9 | Summary & text | executive summary (auto-generated if left blank), scope & methodology, footer; type text or load it with `@file.txt` |
 
 Then **p** previews the findings list, **s** saves the settings as a JSON profile, and **g** generates the report.
@@ -80,14 +98,55 @@ python generate_report.py --list-templates
 ```
 
 `-y/--batch` skips all prompts. Command-line flags override values from the profile.
+`-f` takes `html`, `pdf`, `docx`, `both` (HTML + PDF), `all`, or a comma list such as `-f html,docx`.
+
+## Evidence: payload highlighting and redaction
+
+- **Payload highlighting** (on by default). Burp names the payload in each issue's detail ("The payload `…` was
+  submitted"); the report marks where it appears in the request and response, whether raw, URL-encoded or
+  HTML-encoded. Distinctive values such as a reflected origin or disclosed e-mail addresses are marked too.
+  One- or two-character payloads (e.g. `'`) are only marked in the request.
+- **Redaction** (on by default) masks secrets as `[REDACTED]` in evidence and URLs: all cookie values
+  (`Cookie`, `Set-Cookie`), `Authorization` credentials, headers such as `X-Api-Key` / `X-CSRF-Token`, parameters and
+  JSON keys named like passwords, tokens, keys, sessions or CSRF values, hidden CSRF inputs, JWTs, private-key blocks
+  and common cloud/API key formats. Add your own under **Extra values to redact**: one per line, literal text, or
+  `/regex/` (`/regex/i` to ignore case). The appendix states how many values were masked. Only the report is
+  changed; the Burp file is untouched. Issue descriptions written by Burp are not redacted.
+
+## OWASP Top 10 and CWE
+
+Burp's export lists the CWEs for each issue. The report shows them per finding, adds a CWE column to the findings
+table, and includes an **OWASP Top 10 (2021) mapping** section. That section is a table of the ten categories with
+severity counts and links to the matching findings, plus a "Not mapped" row. The mapping uses OWASP's published CWE
+lists for each category, bundled in `burp_report/owasp.py`; a finding can fall into more than one category.
+
+## Word export
+
+The `.docx` follows the chosen template's colours and section/field settings. It includes a contents list
+(Word fills in page numbers when it updates fields on opening; it asks first), "Page X of Y" footers,
+linked finding IDs, and highlighted payloads in the evidence. Word can't use the web fonts embedded in HTML and PDF
+reports, so each template uses fonts that come with Office: Corporate uses Cambria and Calibri, Modern uses Segoe UI,
+and Minimal uses Arial. SVG and WebP logos aren't supported in Word; use PNG or JPG.
 
 ## Templates
 
 Three templates are built in:
 
-- **corporate**: navy accent, serif headings, numbered sections
-- **modern**: gradient cover, finding cards, side navigation in HTML
-- **minimal**: compact, monochrome and printer-friendly
+- **corporate**: navy accent, numbered sections; Source Serif 4 headings with Source Sans 3 body text
+- **modern**: gradient cover, finding cards, side navigation in HTML; Inter throughout
+- **minimal**: compact, monochrome and printer-friendly; IBM Plex Sans
+
+Request/response evidence uses JetBrains Mono in every template.
+
+### Fonts
+
+The fonts above ship in `burp_report/fonts/` (Latin subset, variable weights, SIL Open Font License; the
+licence texts sit next to each font file). A report embeds only the fonts it uses, as data URIs, so exported HTML
+and PDF look the same on any machine, offline included. This adds roughly 115–160 KB to an HTML report. Characters
+outside the Latin subset (e.g. Japanese) fall back to the system fonts in the stack.
+
+To use a bundled font in your own template or in the **Font** option, refer to it by name: `"Inter"`,
+`"Source Sans 3"`, `"Source Serif 4"`, `"IBM Plex Sans"` or `"JetBrains Mono"`.
 
 ### Making your own
 
@@ -122,10 +181,15 @@ burp_report/
   sanitize.py             allow-list HTML sanitizer
   config.py               ReportConfig (all options; saved as JSON profiles)
   render.py               filtering, grouping, Jinja2 rendering
+  redact.py               secret redaction for evidence
+  highlight.py            payload highlighting in evidence
+  owasp.py                CWE → OWASP Top 10 (2021) mapping
+  docx_export.py          Word (.docx) export
   pdf.py                  HTML → PDF (Edge/Chrome headless, WeasyPrint fallback)
   cli.py                  terminal wizard and command-line options
   web.py                  local web UI server (stdlib only)
   webui/index.html        web UI (single file, works offline)
+  fonts/                  bundled OFL fonts embedded into reports
   templates/              _common/ (shared) + corporate/ modern/ minimal/
 samples/sample_burp_export.xml
 ```

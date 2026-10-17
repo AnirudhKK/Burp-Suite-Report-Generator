@@ -8,17 +8,33 @@ import re
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date, datetime
+from functools import lru_cache
 from pathlib import Path
 
 from jinja2 import ChoiceLoader, Environment, FileSystemLoader, select_autoescape
 from markupsafe import Markup, escape
 
+from . import highlight
 from .config import ReportConfig
+from .owasp import EDITION as OWASP_EDITION, OWASP_2021, categories, parse_cwes
 from .parser import CONFIDENCE_RANK, SEVERITIES, SEVERITY_RANK, Issue, ScanReport
+from .redact import Redactor
 from .sanitize import sanitize_html
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
 COMMON_DIR = TEMPLATES_DIR / "_common"
+FONTS_DIR = Path(__file__).parent / "fonts"
+
+# Open-licensed (SIL OFL) variable fonts shipped with the tool, Latin subset. They are embedded
+# as data URIs so exported HTML and PDF look identical on every machine, even offline.
+# Characters outside the subset fall back to the next font in the stack.
+BUNDLED_FONTS = {
+    "Inter": ("inter.woff2", "100 900"),
+    "Source Sans 3": ("source-sans-3.woff2", "200 900"),
+    "Source Serif 4": ("source-serif-4.woff2", "200 900"),
+    "IBM Plex Sans": ("ibm-plex-sans.woff2", "100 700"),
+    "JetBrains Mono": ("jetbrains-mono.woff2", "100 800"),
+}
 SEVERITY_ORDER = [s for s in SEVERITIES if s != "False positive"] + ["False positive"]
 
 
@@ -92,6 +108,8 @@ class Finding:
     classifications: str
     instances: list[Instance] = field(default_factory=list)
     omitted_instances: int = 0
+    cwes: list[tuple[int, str]] = field(default_factory=list)       # (id, title) from Burp's classifications
+    owasp: list[tuple[str, str]] = field(default_factory=list)      # (code, name), e.g. ("A03", "Injection")
 
     @property
     def hosts(self) -> list[str]:
@@ -113,18 +131,33 @@ def _trim(text: str, limit: int, headers_only: bool = False) -> tuple[str, bool]
     return text, False
 
 
-def _evidence(issue: Issue, cfg: ReportConfig) -> list[dict]:
+def _evidence(issue: Issue, cfg: ReportConfig, redactor: Redactor) -> list[dict]:
+    """Evidence for one issue. "request"/"response" are escaped Markup (with <mark> highlights);
+    "*_text" and "*_marks" carry the plain text and highlight ranges for non-HTML outputs."""
     if not cfg.fields.get("evidence") or not (cfg.include_request or cfg.include_response):
         return []
+    req_patterns = resp_patterns = []
+    if cfg.highlight_payloads:
+        found = highlight.candidates(issue.issue_detail, issue.detail_items)
+        req_patterns = highlight.compile_candidates(found)
+        # One- or two-character payloads (e.g. a single quote) would match all over a response.
+        resp_patterns = highlight.compile_candidates([c for c in found if len(c) >= 3])
     out = []
     for ev in issue.evidence:
-        req, req_cut = _trim(ev.request, cfg.max_evidence_chars) if cfg.include_request else ("", False)
-        resp, resp_cut = (_trim(ev.response, cfg.max_evidence_chars, cfg.response_headers_only)
+        req, req_cut = (_trim(redactor.message(ev.request), cfg.max_evidence_chars)
+                        if cfg.include_request else ("", False))
+        resp, resp_cut = (_trim(redactor.message(ev.response), cfg.max_evidence_chars, cfg.response_headers_only)
                           if cfg.include_response else ("", False))
         if req or resp:
-            out.append({"request": req, "request_truncated": req_cut,
-                        "response": resp, "response_truncated": resp_cut and not cfg.response_headers_only,
+            req_marks = highlight.spans(req, req_patterns)
+            resp_marks = highlight.spans(resp, resp_patterns)
+            out.append({"request": highlight.to_markup(req, req_marks), "request_text": req, "request_marks": req_marks,
+                        "request_truncated": req_cut,
+                        "response": highlight.to_markup(resp, resp_marks), "response_text": resp,
+                        "response_marks": resp_marks,
+                        "response_truncated": resp_cut and not cfg.response_headers_only,
                         "response_headers_only": cfg.response_headers_only and resp_cut,
+                        "highlighted": bool(req_marks or resp_marks),
                         "method": ev.method, "redirected": ev.redirected})
     return out
 
@@ -141,7 +174,9 @@ def filter_issues(scan: ScanReport, cfg: ReportConfig) -> list[Issue]:
     ]
 
 
-def build_findings(issues: list[Issue], cfg: ReportConfig) -> list[Finding]:
+def build_findings(issues: list[Issue], cfg: ReportConfig, redactor: Redactor | None = None) -> list[Finding]:
+    if redactor is None:
+        redactor = Redactor.from_config(cfg.redact_secrets, cfg.redact_custom)
     groups: dict[tuple, list[Issue]] = {}
     for issue in issues:
         key = (issue.type_id, issue.name) if cfg.group_by_type else (issue.serial, id(issue))
@@ -154,9 +189,10 @@ def build_findings(issues: list[Issue], cfg: ReportConfig) -> list[Finding]:
         limit = cfg.max_instances_per_finding or len(members)
         instances = [
             Instance(
-                issue=m, severity=m.severity, confidence=m.confidence, url=m.url, host=m.host, ip=m.ip,
-                path=m.path, location=m.location, issue_detail=m.issue_detail, detail_items=m.detail_items,
-                remediation_detail=m.remediation_detail, evidence=_evidence(m, cfg),
+                issue=m, severity=m.severity, confidence=m.confidence, url=redactor.text(m.url), host=m.host,
+                ip=m.ip, path=redactor.text(m.path), location=m.location, issue_detail=m.issue_detail,
+                detail_items=m.detail_items, remediation_detail=m.remediation_detail,
+                evidence=_evidence(m, cfg, redactor),
             )
             for m in members[:limit]
         ]
@@ -168,6 +204,8 @@ def build_findings(issues: list[Issue], cfg: ReportConfig) -> list[Finding]:
             references=first.references, classifications=first.classifications,
             instances=instances, omitted_instances=max(0, len(members) - limit),
         ))
+        findings[-1].cwes = parse_cwes(first.classifications)
+        findings[-1].owasp = categories([c for c, _ in findings[-1].cwes])
 
     sorters = {
         "severity": lambda f: (SEVERITY_RANK.get(f.severity, 9), CONFIDENCE_RANK.get(f.confidence, 9), f.name.lower()),
@@ -190,6 +228,17 @@ def _host_summary(issues: list[Issue]) -> list[dict]:
         h["counts"][i.severity] += 1
         h["total"] += 1
     return sorted(hosts.values(), key=lambda h: tuple(-h["counts"][s] for s in SEVERITY_ORDER) + (h["host"],))
+
+
+def _owasp_summary(findings: list[Finding]) -> dict:
+    rows = []
+    for code, (name, _) in OWASP_2021.items():
+        members = [f for f in findings if any(c == code for c, _ in f.owasp)]
+        rows.append({"code": code, "name": name, "findings": members, "counts": Counter(f.severity for f in members)})
+    unmapped = [f for f in findings if not f.owasp]
+    return {"edition": OWASP_EDITION, "rows": rows, "unmapped": unmapped,
+            "unmapped_counts": Counter(f.severity for f in unmapped),
+            "mapped_total": sum(1 for f in findings if f.owasp)}
 
 
 def _auto_summary(findings: list[Finding], counts: Counter, hosts: list[dict], cfg: ReportConfig) -> str:
@@ -260,6 +309,28 @@ def valid_font(value: str) -> bool:
     return bool(_CSS_FONT.match(value.strip()))
 
 
+@lru_cache(maxsize=None)
+def _font_face(family: str) -> str:
+    filename, weights = BUNDLED_FONTS[family]
+    data = base64.b64encode((FONTS_DIR / filename).read_bytes()).decode("ascii")
+    return (f'@font-face {{ font-family: "{family}"; font-style: normal; font-weight: {weights}; '
+            f'font-display: block; src: url(data:font/woff2;base64,{data}) format("woff2"); }}')
+
+
+def _font_faces(template_css: str, custom_stack: str) -> Markup:
+    """@font-face rules for the bundled fonts referenced (quoted) by the template or named in the custom font stack."""
+    custom = {name.strip().strip("'\"").lower() for name in (custom_stack or "").split(",")}
+    used = [f for f in BUNDLED_FONTS
+            if (f'"{f}"' in template_css or f"'{f}'" in template_css or f.lower() in custom)
+            and (FONTS_DIR / BUNDLED_FONTS[f][0]).is_file()]
+    return Markup("\n".join(_font_face(f) for f in used))
+
+
+def _template_css(template_dir: Path) -> str:
+    return "\n".join(p.read_text(encoding="utf-8", errors="replace")
+                     for p in (template_dir / "report.html.j2", COMMON_DIR / "base.css") if p.is_file())
+
+
 def _make_env(template_dir: Path) -> Environment:
     env = Environment(
         loader=ChoiceLoader([FileSystemLoader(str(template_dir)), FileSystemLoader(str(COMMON_DIR))]),
@@ -274,10 +345,11 @@ def _make_env(template_dir: Path) -> Environment:
     return env
 
 
-def render_html(scan: ScanReport, cfg: ReportConfig, output_format: str = "html") -> str:
-    template_dir = resolve_template(cfg.template)
+def build_context(scan: ScanReport, cfg: ReportConfig, output_format: str = "html") -> dict:
+    """Everything a report needs (shared by the HTML/PDF templates and the Word exporter)."""
     issues = filter_issues(scan, cfg)
-    findings = build_findings(issues, cfg)
+    redactor = Redactor.from_config(cfg.redact_secrets, cfg.redact_custom)
+    findings = build_findings(issues, cfg, redactor)
     counts = Counter(f.severity for f in findings)
     instance_counts = Counter(i.severity for i in issues)
     hosts = _host_summary(issues)
@@ -313,9 +385,22 @@ def render_html(scan: ScanReport, cfg: ReportConfig, output_format: str = "html"
             "filtered_out": len(scan.issues) - len(issues),
         },
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "owasp": _owasp_summary(findings),
+        "redaction": {"enabled": cfg.redact_secrets, "custom": len(redactor.custom), "count": redactor.count},
         "theme": {
             "accent": Markup(cfg.accent_color.strip()) if cfg.accent_color and valid_color(cfg.accent_color) else "",
             "font": Markup(cfg.font_family.strip()) if cfg.font_family and valid_font(cfg.font_family) else "",
         },
     }
+    return ctx
+
+
+def render_html(scan: ScanReport, cfg: ReportConfig, output_format: str = "html") -> str:
+    template_dir = resolve_template(cfg.template)
+    ctx = build_context(scan, cfg, output_format)
+    template_css = _template_css(template_dir)
+    ctx["theme"]["font_faces"] = _font_faces(template_css, ctx["theme"]["font"])
+    # @page margin boxes (page numbers, classification) don't inherit CSS variables, so pass the font stack literally.
+    m = re.search(r"--font:\s*([^;]+);", template_css)
+    ctx["theme"]["page_font"] = Markup(m.group(1).strip()) if m and valid_font(m.group(1)) else "sans-serif"
     return _make_env(template_dir).get_template("report.html.j2").render(**ctx)

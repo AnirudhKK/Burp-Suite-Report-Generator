@@ -4,7 +4,7 @@
   --accent-ink: #ffffff;
   --font: "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
   --heading-font: var(--font);
-  --mono: "Cascadia Mono", Consolas, "SFMono-Regular", Menlo, monospace;
+  --mono: "JetBrains Mono", "Cascadia Mono", Consolas, "SFMono-Regular", Menlo, monospace;
   --text: #1d2330;
   --muted: #5f6b7a;
   --bg: #ffffff;
@@ -23,7 +23,7 @@
 
 * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 html { -webkit-text-size-adjust: 100%; }
-body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.55 var(--font); }
+body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 var(--font); font-kerning: normal; text-rendering: optimizeLegibility; }
 .is-pdf body { font-size: 10.5pt; }
 a { color: var(--accent); }
 h1, h2, h3, h4, h5 { font-family: var(--heading-font); line-height: 1.25; margin: 1.4em 0 .5em; break-after: avoid; }
@@ -176,3 +176,15 @@ pre code { background: none; padding: 0; }
   .chart { gap: 20px; }
   table.data { display: block; overflow-x: auto; }
 }
+
+/* payload highlights in evidence, CWE / OWASP tags */
+mark.hl { background: #ffe066; color: #1d2330; border-radius: 2px; padding: 0 1px; box-shadow: 0 0 0 1px #e8b900 inset; }
+.hl-note { text-transform: none; letter-spacing: 0; font-weight: 500; margin-left: 6px; }
+.cwe { font-family: var(--mono); font-size: .9em; font-weight: 600; white-space: nowrap; }
+.owasp-tag { display: inline-block; font-family: var(--mono); font-size: .85em; font-weight: 700; padding: 0 6px; border-radius: 4px;
+  background: var(--surface); border: 1px solid var(--border); white-space: nowrap; }
+.owasp-table tr.none td { color: var(--muted); }
+.owasp-table tr.unmapped td { background: var(--surface); }
+.owasp-table .fids { font-size: .9em; }
+.owasp-table .fids .fid { font-weight: 600; }
+td.nowrap { white-space: nowrap; font-family: var(--mono); font-size: .88em; }

@@ -13,9 +13,12 @@ SECTIONS = {
     "risk_chart": "Risk overview chart",
     "findings_table": "Findings summary table",
     "hosts_table": "Affected hosts table",
+    "owasp_table": "OWASP Top 10 (2021) mapping",
     "findings": "Detailed findings",
     "scan_info": "Scan information appendix",
 }
+
+OUTPUT_FORMATS = ("html", "pdf", "docx")
 
 FINDING_FIELDS = {
     "issue_background": "Issue background (description)",
@@ -25,6 +28,7 @@ FINDING_FIELDS = {
     "remediation_detail": "Remediation detail",
     "references": "References",
     "classifications": "Vulnerability classifications (CWE/CAPEC)",
+    "cwe_owasp": "CWE & OWASP Top 10 category",
     "affected_urls": "Affected URLs list",
     "evidence": "HTTP request/response evidence",
 }
@@ -33,7 +37,7 @@ FINDING_FIELDS = {
 @dataclass
 class ReportConfig:
     # Output
-    output_formats: list[str] = field(default_factory=lambda: ["html"])
+    output_formats: list[str] = field(default_factory=lambda: ["html"])   # any of OUTPUT_FORMATS
     output_path: str = ""          # without extension; extension is added per format
     template: str = "corporate"    # built-in name or path to a template folder
     accent_color: str = ""         # overrides the template's accent colour if set
@@ -79,6 +83,9 @@ class ReportConfig:
     response_headers_only: bool = False
     max_evidence_chars: int = 6000
     max_instances_per_finding: int = 25
+    highlight_payloads: bool = True   # mark the payload Burp names in the issue detail inside the evidence
+    redact_secrets: bool = True       # mask cookies, auth headers, tokens, passwords and keys in evidence
+    redact_custom: list[str] = field(default_factory=list)  # extra values to mask; "/regex/" or "/regex/i" for patterns
 
     def save(self, path: str | Path) -> None:
         Path(path).write_text(json.dumps(asdict(self), indent=2), encoding="utf-8")
@@ -115,7 +122,7 @@ class ReportConfig:
         # Fill in any section/field keys added since the profile was saved.
         cfg.sections = {k: bool(cfg.sections.get(k, True)) for k in SECTIONS}
         cfg.fields = {k: bool(cfg.fields.get(k, True)) for k in FINDING_FIELDS}
-        cfg.output_formats = [f for f in ("html", "pdf") if f in cfg.output_formats] or ["html"]
+        cfg.output_formats = [f for f in OUTPUT_FORMATS if f in cfg.output_formats] or ["html"]
         if cfg.sort_by not in ("severity", "name", "host", "count"):
             cfg.sort_by = "severity"
         return cfg
