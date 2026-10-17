@@ -1,0 +1,4 @@
+Jinja2>=3.1
+rich>=13.0
+# Optional PDF fallback when no Edge/Chrome/Chromium is installed:
+# weasyprint>=60

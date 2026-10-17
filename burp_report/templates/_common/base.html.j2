@@ -1,0 +1,261 @@
+{#
+  Base layout shared by all templates. A template's report.html.j2 does
+  {% extends "base.html.j2" %} and overrides any of the blocks below.
+
+  Available context: meta, cfg, sections, fields, findings, hosts, severities,
+  counts, instance_counts, total_findings, total_instances, max_count, scan,
+  executive_summary, scope, theme, is_pdf, interactive, generated_at.
+#}
+{% import "macros.html.j2" as m %}
+<!doctype html>
+<html lang="en" class="{{ 'is-pdf' if is_pdf else 'is-html' }}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="generator" content="Burp Suite Report Generator">
+<title>{{ meta.title }}{% if meta.client %} – {{ meta.client }}{% endif %}</title>
+<style>
+{% include "base.css" %}
+{% block styles %}{% endblock %}
+{% if theme.accent %}:root { --accent: {{ theme.accent }}; }{% endif %}
+{% if theme.font %}:root { --font: {{ theme.font }}; }{% endif %}
+@page {
+  @bottom-left { content: {{ (meta.classification or meta.footer or '')|css_string }}; font: 8pt sans-serif; color: #777; }
+  @bottom-right { content: "Page " counter(page) " of " counter(pages); font: 8pt sans-serif; color: #777; }
+}
+</style>
+</head>
+<body>
+{% block toolbar %}
+{% if interactive and sections.findings and findings %}
+<div class="toolbar" role="search">
+  <input type="search" id="q" placeholder="Search findings, hosts, paths…" aria-label="Search findings">
+  <div class="chips">
+    {% for s in severities if counts[s] %}
+    <button type="button" class="chip {{ s|sev_class }} on" data-sev="{{ s }}" aria-pressed="true">{{ s }} <b>{{ counts[s] }}</b></button>
+    {% endfor %}
+  </div>
+  <button type="button" class="tb-btn" id="expand">Expand all</button>
+  <button type="button" class="tb-btn" id="collapse">Collapse all</button>
+  <button type="button" class="tb-btn" onclick="window.print()">Print</button>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block sidebar %}{% endblock %}
+
+<main class="doc">
+{% block cover %}
+{% if sections.cover %}
+<section class="cover">
+  <div class="cover-inner">
+    {% if meta.logo %}<img class="logo" src="{{ meta.logo }}" alt="Logo">{% endif %}
+    {% if meta.classification %}<div class="classification">{{ meta.classification }}</div>{% endif %}
+    <h1>{{ meta.title }}</h1>
+    {% if meta.subtitle %}<p class="subtitle">{{ meta.subtitle }}</p>{% endif %}
+    {% if meta.client %}<p class="client">Prepared for <strong>{{ meta.client }}</strong></p>{% endif %}
+    <dl class="cover-meta">
+      {% if meta.prepared_by %}<dt>Prepared by</dt><dd>{{ meta.prepared_by }}</dd>{% endif %}
+      {% if meta.company %}<dt>Organisation</dt><dd>{{ meta.company }}</dd>{% endif %}
+      <dt>Date</dt><dd>{{ meta.date }}</dd>
+      {% if meta.version %}<dt>Version</dt><dd>{{ meta.version }}</dd>{% endif %}
+    </dl>
+  </div>
+</section>
+{% else %}
+<header class="doc-header">
+  {% if meta.logo %}<img class="logo" src="{{ meta.logo }}" alt="Logo">{% endif %}
+  <h1>{{ meta.title }}</h1>
+  <p class="muted">{% if meta.client %}{{ meta.client }} · {% endif %}{{ meta.date }}{% if meta.classification %} · {{ meta.classification }}{% endif %}</p>
+</header>
+{% endif %}
+{% endblock %}
+
+{% block toc %}
+{% if sections.toc %}
+<section class="toc{{ ' page-break' if sections.cover }}" id="toc">
+  <h2>Contents</h2>
+  <ol>
+    {% if sections.executive_summary %}<li><a href="#executive-summary">Executive summary</a></li>{% endif %}
+    {% if sections.scope and scope %}<li><a href="#scope">Scope &amp; methodology</a></li>{% endif %}
+    {% if sections.risk_chart or sections.findings_table %}<li><a href="#overview">Findings overview</a></li>{% endif %}
+    {% if sections.hosts_table %}<li><a href="#hosts">Affected hosts</a></li>{% endif %}
+    {% if sections.findings %}
+    <li><a href="#findings">Detailed findings</a>
+      <ol class="toc-findings">
+        {% for f in findings %}
+        <li><a href="#{{ f.anchor }}"><span class="fid">{{ f.id }}</span> {{ f.name }}</a> {{ m.sev_badge(f.severity) }}</li>
+        {% endfor %}
+      </ol>
+    </li>
+    {% endif %}
+    {% if sections.scan_info %}<li><a href="#scan-info">Appendix: scan information</a></li>{% endif %}
+  </ol>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block executive_summary %}
+{% if sections.executive_summary %}
+<section class="section{{ ' page-break' if sections.cover and not sections.toc }}" id="executive-summary">
+  <h2>Executive summary</h2>
+  {{ m.severity_tiles(counts, severities) }}
+  <div class="prose">{{ executive_summary|paragraphs }}</div>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block scope %}
+{% if sections.scope and scope %}
+<section class="section" id="scope">
+  <h2>Scope &amp; methodology</h2>
+  <div class="prose">{{ scope|paragraphs }}</div>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block overview %}
+{% if sections.risk_chart or sections.findings_table %}
+<section class="section" id="overview">
+  <h2>Findings overview</h2>
+  {% if sections.risk_chart %}
+  <div class="chart">
+    {{ m.donut(counts, severities, total_findings) }}
+    {{ m.bars(counts, severities, max_count) }}
+  </div>
+  <p class="muted small">{{ total_findings }} unique finding{{ 's' if total_findings != 1 }} ({{ total_instances }} instance{{ 's' if total_instances != 1 }}) after filtering.</p>
+  {% endif %}
+  {% if sections.findings_table %}
+  <table class="data summary-table">
+    <thead><tr><th>ID</th><th>Finding</th><th>Severity</th><th>Confidence</th><th class="num">Instances</th></tr></thead>
+    <tbody>
+    {% for f in findings %}
+      <tr data-severity="{{ f.severity }}">
+        <td class="fid">{% if sections.findings %}<a href="#{{ f.anchor }}">{{ f.id }}</a>{% else %}{{ f.id }}{% endif %}</td>
+        <td>{{ f.name }}</td><td>{{ m.sev_badge(f.severity) }}</td><td>{{ f.confidence }}</td><td class="num">{{ f.count }}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="5" class="muted">No findings match the selected filters.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</section>
+{% endif %}
+{% endblock %}
+
+{% block hosts %}
+{% if sections.hosts_table %}
+<section class="section" id="hosts">
+  <h2>Affected hosts</h2>
+  <table class="data">
+    <thead><tr><th>Host</th><th>IP address</th>{% for s in severities %}<th class="num">{{ s }}</th>{% endfor %}<th class="num">Total</th></tr></thead>
+    <tbody>
+    {% for h in hosts %}
+      <tr><td class="url">{{ h.host or '—' }}</td><td>{{ h.ip or '—' }}</td>
+        {% for s in severities %}<td class="num">{% if h.counts[s] %}<span class="count {{ s|sev_class }}">{{ h.counts[s] }}</span>{% else %}–{% endif %}</td>{% endfor %}
+        <td class="num"><strong>{{ h.total }}</strong></td></tr>
+    {% else %}
+      <tr><td colspan="{{ severities|length + 3 }}" class="muted">No hosts.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  <p class="muted small">Counts are per issue instance.</p>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block findings %}
+{% if sections.findings %}
+<section class="section findings page-break" id="findings">
+  <h2>Detailed findings</h2>
+  {% for f in findings %}
+    {{ m.finding(f, fields, is_pdf, cfg.page_break_per_finding and not loop.first) }}
+  {% else %}
+    <p class="muted">No findings match the selected filters.</p>
+  {% endfor %}
+  <p class="no-results muted" hidden>No findings match your search.</p>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block appendix %}
+{% if sections.scan_info %}
+<section class="section appendix" id="scan-info">
+  <h2>Appendix: scan information</h2>
+  <table class="data kv">
+    <tr><th>Source file</th><td>{{ scan.source }}</td></tr>
+    {% if scan.burp_version %}<tr><th>Burp Suite version</th><td>{{ scan.burp_version }}</td></tr>{% endif %}
+    {% if scan.export_time %}<tr><th>Export time</th><td>{{ scan.export_time }}</td></tr>{% endif %}
+    <tr><th>Issues in export</th><td>{{ scan.total_issues }}</td></tr>
+    <tr><th>Issues included</th><td>{{ total_instances }}{% if scan.filtered_out %} ({{ scan.filtered_out }} excluded by filters){% endif %}</td></tr>
+    <tr><th>Severities included</th><td>{{ severities|join(', ') }}</td></tr>
+    <tr><th>Confidence levels included</th><td>{{ cfg.confidences|join(', ') }}</td></tr>
+    <tr><th>Report generated</th><td>{{ generated_at }}</td></tr>
+  </table>
+  <h3>Severity ratings</h3>
+  <table class="data kv">
+    <tr><th>{{ m.sev_badge('High') }}</th><td>Issues that could lead to significant compromise of data, systems or users and should be fixed as a priority.</td></tr>
+    <tr><th>{{ m.sev_badge('Medium') }}</th><td>Issues that weaken security and may be exploitable in combination with other weaknesses.</td></tr>
+    <tr><th>{{ m.sev_badge('Low') }}</th><td>Issues with limited direct impact that represent deviations from best practice.</td></tr>
+    <tr><th>{{ m.sev_badge('Information') }}</th><td>Observations that do not represent a vulnerability on their own but may be of interest.</td></tr>
+  </table>
+  <h3>Confidence levels</h3>
+  <table class="data kv">
+    <tr><th>Certain</th><td>Burp is certain the issue exists.</td></tr>
+    <tr><th>Firm</th><td>The issue is very likely present, but has not been fully confirmed.</td></tr>
+    <tr><th>Tentative</th><td>The issue may be present; manual verification is recommended.</td></tr>
+  </table>
+</section>
+{% endif %}
+{% endblock %}
+
+{% block footer %}
+<footer class="doc-footer">
+  {% if meta.footer %}<p>{{ meta.footer }}</p>{% endif %}
+  <p class="muted small">{{ meta.title }}{% if meta.client %} · {{ meta.client }}{% endif %} · Generated {{ generated_at }}</p>
+</footer>
+{% endblock %}
+</main>
+
+{% if interactive %}
+<script>
+(function () {
+  var q = document.getElementById('q');
+  if (!q) return;
+  var findings = Array.prototype.slice.call(document.querySelectorAll('article.finding'));
+  var rows = Array.prototype.slice.call(document.querySelectorAll('.summary-table tr[data-severity]'));
+  var chips = Array.prototype.slice.call(document.querySelectorAll('.chip'));
+  var empty = document.querySelector('.no-results');
+  function active() {
+    return chips.filter(function (c) { return c.classList.contains('on'); }).map(function (c) { return c.dataset.sev; });
+  }
+  function apply() {
+    var term = q.value.trim().toLowerCase(), sev = active(), shown = 0;
+    findings.forEach(function (f) {
+      var ok = sev.indexOf(f.dataset.severity) >= 0 && (!term || f.dataset.search.indexOf(term) >= 0);
+      f.hidden = !ok; if (ok) shown++;
+    });
+    rows.forEach(function (r) { r.hidden = sev.indexOf(r.dataset.severity) < 0; });
+    if (empty) empty.hidden = shown > 0 || !findings.length;
+  }
+  q.addEventListener('input', apply);
+  chips.forEach(function (c) {
+    c.addEventListener('click', function () {
+      c.classList.toggle('on');
+      c.setAttribute('aria-pressed', c.classList.contains('on'));
+      apply();
+    });
+  });
+  function setAll(open) {
+    document.querySelectorAll('details.instance').forEach(function (d) { d.open = open; });
+  }
+  document.getElementById('expand').onclick = function () { setAll(true); };
+  document.getElementById('collapse').onclick = function () { setAll(false); };
+  window.addEventListener('beforeprint', function () { setAll(true); });
+})();
+</script>
+{% endif %}
+{% block scripts %}{% endblock %}
+</body>
+</html>

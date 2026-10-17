@@ -1,0 +1,143 @@
+{# Reusable building blocks. Custom templates can import these:
+   {% import "macros.html.j2" as m %} #}
+
+{% macro sev_badge(sev) -%}
+<span class="badge {{ sev|sev_class }}">{{ sev }}</span>
+{%- endmacro %}
+
+{% macro donut(counts, severities, total) -%}
+{% set ns = namespace(acc=0, stops=[]) %}
+{% for s in severities if counts[s] %}
+  {% set pct = counts[s] / total * 100 %}
+  {% set ns.stops = ns.stops + ['var(--' ~ (s|sev_class) ~ ') ' ~ (ns.acc|round(2)) ~ '% ' ~ ((ns.acc + pct)|round(2)) ~ '%'] %}
+  {% set ns.acc = ns.acc + pct %}
+{% endfor %}
+<div class="donut" style="background: {% if ns.stops %}conic-gradient({{ ns.stops|join(', ') }}){% else %}var(--border){% endif %}">
+  <div class="donut-hole"><strong>{{ total }}</strong><span>finding{{ '' if total == 1 else 's' }}</span></div>
+</div>
+{%- endmacro %}
+
+{% macro bars(counts, severities, max_count) -%}
+<div class="bars">
+{% for s in severities %}
+  <div class="bar-row">
+    <span class="bar-label">{{ s }}</span>
+    <span class="bar-track"><span class="bar-fill {{ s|sev_class }}" style="width: {{ (counts[s] / max_count * 100)|round(1) }}%"></span></span>
+    <span class="bar-value">{{ counts[s] }}</span>
+  </div>
+{% endfor %}
+</div>
+{%- endmacro %}
+
+{% macro severity_tiles(counts, severities) -%}
+<div class="tiles">
+{% for s in severities %}
+  <div class="tile {{ s|sev_class }}"><strong>{{ counts[s] }}</strong><span>{{ s }}</span></div>
+{% endfor %}
+</div>
+{%- endmacro %}
+
+{% macro evidence_block(ev, n, is_pdf) -%}
+<div class="evidence">
+  {% if ev.request %}
+  <div class="ev-part">
+    <div class="ev-title">Request{% if n %} {{ n }}{% endif %}{% if ev.request_truncated %} <em>(truncated)</em>{% endif %}</div>
+    <pre class="http">{{ ev.request }}</pre>
+  </div>
+  {% endif %}
+  {% if ev.response %}
+  <div class="ev-part">
+    <div class="ev-title">Response{% if n %} {{ n }}{% endif %}{% if ev.redirected %} <em>(after redirect)</em>{% endif %}{% if ev.response_headers_only %} <em>(headers only)</em>{% elif ev.response_truncated %} <em>(truncated)</em>{% endif %}</div>
+    <pre class="http">{{ ev.response }}</pre>
+  </div>
+  {% endif %}
+</div>
+{%- endmacro %}
+
+{% macro instance_body(inst, fields, is_pdf) -%}
+  {% if fields.issue_detail and inst.issue_detail %}
+  <div class="fsec"><h5>Issue detail</h5>{{ inst.issue_detail|burp_html }}</div>
+  {% endif %}
+  {% if fields.detail_items and inst.detail_items %}
+  <div class="fsec"><h5>Detail items</h5><ul>{% for d in inst.detail_items %}<li>{{ d }}</li>{% endfor %}</ul></div>
+  {% endif %}
+  {% if fields.remediation_detail and inst.remediation_detail %}
+  <div class="fsec"><h5>Remediation detail</h5>{{ inst.remediation_detail|burp_html }}</div>
+  {% endif %}
+  {% for ev in inst.evidence %}
+    {{ evidence_block(ev, loop.index if inst.evidence|length > 1 else 0, is_pdf) }}
+  {% endfor %}
+{%- endmacro %}
+
+{% macro has_instance_body(inst, fields) -%}
+{{- 'y' if (fields.issue_detail and inst.issue_detail) or (fields.detail_items and inst.detail_items)
+        or (fields.remediation_detail and inst.remediation_detail) or inst.evidence else '' -}}
+{%- endmacro %}
+
+{% macro finding(f, fields, is_pdf, page_break=false) -%}
+<article class="finding {{ f.severity|sev_class }}{% if page_break %} page-break{% endif %}" id="{{ f.anchor }}"
+         data-severity="{{ f.severity }}" data-search="{{ (f.id ~ ' ' ~ f.name ~ ' ' ~ f.hosts|join(' ') ~ ' ' ~ f.instances|map(attribute='path')|join(' '))|lower }}">
+  <header class="finding-head">
+    <span class="fid">{{ f.id }}</span>
+    <h3>{{ f.name }}</h3>
+    {{ sev_badge(f.severity) }}
+  </header>
+
+  <table class="finding-meta">
+    <tr>
+      <th>Severity</th><td>{{ f.severity }}</td>
+      <th>Confidence</th><td>{{ f.confidence }}</td>
+    </tr>
+    <tr>
+      <th>Instances</th><td>{{ f.count }}</td>
+      <th>Host{{ 's' if f.hosts|length > 1 }}</th><td>{{ f.hosts|select|join(', ') or '—' }}</td>
+    </tr>
+    {% if f.type_id %}<tr><th>Burp issue type</th><td colspan="3">{{ f.type_id }}</td></tr>{% endif %}
+  </table>
+
+  {% if fields.issue_background and f.issue_background %}
+  <section class="fsec"><h4>Description</h4>{{ f.issue_background|burp_html }}</section>
+  {% endif %}
+
+  {% if fields.affected_urls %}
+  <section class="fsec">
+    <h4>Affected URLs</h4>
+    <table class="data compact">
+      <thead><tr><th>#</th><th>URL</th><th>Severity</th><th>Confidence</th></tr></thead>
+      <tbody>
+      {% for inst in f.instances %}
+        <tr><td>{{ loop.index }}</td><td class="url">{{ inst.url }}</td><td>{{ sev_badge(inst.severity) }}</td><td>{{ inst.confidence }}</td></tr>
+      {% endfor %}
+      {% if f.omitted_instances %}
+        <tr><td colspan="4" class="muted">… and {{ f.omitted_instances }} more instance{{ 's' if f.omitted_instances > 1 }} not shown</td></tr>
+      {% endif %}
+      </tbody>
+    </table>
+  </section>
+  {% endif %}
+
+  {% for inst in f.instances %}
+    {% if not has_instance_body(inst, fields) %}
+    {% elif f.instances|length == 1 %}
+      <section class="fsec instance-single">{{ instance_body(inst, fields, is_pdf) }}</section>
+    {% else %}
+      <details class="instance"{% if is_pdf or loop.first %} open{% endif %}>
+        <summary><span class="inst-n">Instance {{ loop.index }}</span> <span class="url">{{ inst.url }}</span> {{ sev_badge(inst.severity) }}</summary>
+        <div class="instance-body">{{ instance_body(inst, fields, is_pdf) }}</div>
+      </details>
+    {% endif %}
+  {% endfor %}
+
+  {% if fields.remediation_background and f.remediation_background %}
+  <section class="fsec remediation"><h4>Remediation</h4>{{ f.remediation_background|burp_html }}</section>
+  {% endif %}
+
+  {% if fields.references and f.references %}
+  <section class="fsec refs"><h4>References</h4>{{ f.references|burp_html }}</section>
+  {% endif %}
+
+  {% if fields.classifications and f.classifications %}
+  <section class="fsec refs"><h4>Vulnerability classifications</h4>{{ f.classifications|burp_html }}</section>
+  {% endif %}
+</article>
+{%- endmacro %}

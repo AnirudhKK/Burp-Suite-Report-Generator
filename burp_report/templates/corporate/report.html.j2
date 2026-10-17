@@ -1,0 +1,22 @@
+{% extends "base.html.j2" %}
+{% block styles %}
+:root {
+  --accent: #1f3a5f;
+  --heading-font: Georgia, "Times New Roman", serif;
+  --surface: #f4f6f9;
+}
+body { counter-reset: sec; }
+.section > h2, .toc > h2 { border-bottom: 3px solid var(--accent); padding-bottom: 6px; color: var(--accent); }
+.section > h2::before { counter-increment: sec; content: counter(sec) ". "; }
+.appendix > h2::before { content: none; }
+.cover { position: relative; background: linear-gradient(90deg, var(--accent) 0 14mm, transparent 14mm); }
+.cover-inner { padding-left: 30mm; }
+.cover h1 { color: var(--accent); }
+.cover::after { content: ""; position: absolute; left: 30mm; right: 12mm; bottom: 18%; border-top: 1px solid var(--border); }
+.finding { border-top: 2px solid var(--accent); padding-top: 14px; }
+.finding .fid { background: var(--accent); color: var(--accent-ink); padding: 2px 8px; border-radius: 3px; }
+.toc-findings .fid { background: none; color: inherit; padding: 0; }
+table.data thead th { background: var(--accent); color: var(--accent-ink); border-bottom: 0; }
+table.data thead th a { color: inherit; }
+.summary-table a { color: var(--accent); }
+{% endblock %}

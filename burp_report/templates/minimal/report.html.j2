@@ -1,0 +1,33 @@
+{% extends "base.html.j2" %}
+{% block styles %}
+:root {
+  --accent: #111111;
+  --font: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --surface: #f6f6f6;
+  --border: #d9d9d9;
+  --radius: 2px;
+  --code-bg: #fafafa;
+}
+body { font-size: 14px; }
+.is-pdf body { font-size: 9.5pt; }
+h2 { font-size: 1.3em; text-transform: uppercase; letter-spacing: .06em; border-bottom: 1px solid var(--text); padding-bottom: 4px; }
+.cover { min-height: 60vh; }
+.cover h1 { font-weight: 300; font-size: 2.4em; }
+.classification { color: var(--text); }
+.badge { background: transparent !important; color: var(--text) !important; border: 1.5px solid var(--sev-information); }
+.badge.sev-high { border-color: var(--sev-high); }
+.badge.sev-medium { border-color: var(--sev-medium); }
+.badge.sev-low { border-color: var(--sev-low); }
+.badge.sev-false-positive { border-color: var(--sev-false-positive); }
+.tile { background: var(--surface) !important; color: var(--text) !important; border-top: 4px solid var(--sev-information); border-radius: 0; padding: 10px 12px; }
+.tile.sev-high { border-top-color: var(--sev-high); }
+.tile.sev-medium { border-top-color: var(--sev-medium); }
+.tile.sev-low { border-top-color: var(--sev-low); }
+.tile.sev-false-positive { border-top-color: var(--sev-false-positive); }
+.finding { margin: 18px 0 26px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+.finding-head h3 { font-size: 1.08em; }
+.fsec h4 { color: var(--text); text-transform: uppercase; font-size: .8em; letter-spacing: .06em; }
+pre.http { font-size: 11px; }
+.donut { width: 130px; height: 130px; }
+.donut-hole { width: 86px; height: 86px; }
+{% endblock %}
