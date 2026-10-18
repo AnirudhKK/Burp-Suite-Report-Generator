@@ -38,6 +38,13 @@ Releases/
 # --- Generated reports and local settings ---
 reports/
 smoke/
+test-results/
+
+# --- Code-signing material: never commit certificates or keys ---
+*.pfx
+*.p12
+*.pvk
+*.key
 
 # --- OS / editor ---
 .DS_Store

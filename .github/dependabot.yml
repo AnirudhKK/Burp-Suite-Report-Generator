@@ -1,0 +1,26 @@
+# Weekly pull requests that update the GitHub Actions used by the workflows and the Python packages in
+# requirements*.txt. Each group arrives as one PR, and the build workflow tests it before you merge.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: ci
+
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      python-packages:
+        patterns: ["*"]
+    commit-message:
+      prefix: deps
+    open-pull-requests-limit: 5

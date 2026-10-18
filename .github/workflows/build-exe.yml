@@ -1,9 +1,10 @@
-# Builds the single-file Windows executable with PyInstaller.
+# Tests the project, builds the single-file Windows executable with PyInstaller and releases it.
 #
-# - Every push and pull request: build, smoke-test, and attach the .exe to the run as a downloadable artifact.
+# - Every push and pull request: run the tests, then build and smoke-test the .exe and attach it to the run.
 # - Pushing a tag such as v1.0.0: also publishes a GitHub Release with the .exe and its SHA-256 checksum.
 #   The tag must match __version__ in burp_report/__init__.py.
 # - Can be started by hand from the Actions tab (workflow_dispatch).
+# The exe is not code-signed; the release notes explain the SmartScreen prompt.
 name: Build Windows exe
 
 on:
@@ -11,7 +12,6 @@ on:
     branches: [main, master]
     tags: ["v*"]
   pull_request:
-    paths-ignore: ["**.md"]
   workflow_dispatch:
 
 permissions:
@@ -22,7 +22,39 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  test:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements*.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      # Unit tests plus the web UI tests, which drive the Microsoft Edge preinstalled on the runner.
+      - name: Run tests
+        run: python -m pytest -v
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: test-screenshots
+          path: test-results/
+          if-no-files-found: ignore
+
   build:
+    needs: test
     runs-on: windows-latest
     timeout-minutes: 30
     defaults:
@@ -37,7 +69,7 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: requirements.txt
+          cache-dependency-path: requirements*.txt
 
       - name: Read version
         id: version
@@ -52,7 +84,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt pyinstaller
+          pip install -r requirements-dev.txt
 
       - name: Build exe
         run: pyinstaller packaging/BurpReportGenerator.spec --noconfirm --clean
@@ -65,7 +97,6 @@ jobs:
           if ($LASTEXITCODE) { throw "--version failed" }
           & $exe --list-templates
           if ($LASTEXITCODE) { throw "--list-templates failed" }
-          # Edge is preinstalled on GitHub's Windows runners, so PDF export is tested too.
           & $exe samples/sample_burp_export.xml -y -f all -o smoke/report
           if ($LASTEXITCODE) { throw "report export failed" }
           foreach ($ext in "html", "pdf", "docx") {
@@ -73,6 +104,12 @@ jobs:
             if (-not (Test-Path $f) -or (Get-Item $f).Length -lt 1kb) { throw "$f missing or empty" }
             "{0,-20} {1,10:N0} bytes" -f $f, (Get-Item $f).Length
           }
+
+      # The same web UI tests, served by the exe: catches files missing from the bundle (fonts, templates, UI).
+      - name: Web UI tests against the exe
+        env:
+          BURP_REPORT_EXE: dist/BurpReportGenerator-v${{ steps.version.outputs.version }}.exe
+        run: python -m pytest tests/e2e -v
 
       - name: Checksum
         run: |
@@ -89,6 +126,14 @@ jobs:
             dist/*.exe
             dist/*.sha256
           if-no-files-found: error
+          retention-days: ${{ github.ref_type == 'tag' && 90 || 14 }}
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: exe-test-screenshots
+          path: test-results/
+          if-no-files-found: ignore
 
   release:
     if: github.ref_type == 'tag'
@@ -102,9 +147,41 @@ jobs:
           name: BurpReportGenerator-v${{ needs.build.outputs.version }}
           path: dist
 
+      - name: Write release notes
+        env:
+          EXE: BurpReportGenerator-v${{ needs.build.outputs.version }}.exe
+        run: |
+          hash=$(cut -d' ' -f1 "dist/$EXE.sha256")
+          cat > notes.md <<EOF
+          ## Download
+
+          **[$EXE](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/$EXE)**: a single
+          file, no installation or Python needed. Double-click it to open the report studio in your browser.
+          PDF export uses the Microsoft Edge or Google Chrome already on your PC.
+
+          ### "Windows protected your PC"
+
+          The exe isn't code-signed, so Windows SmartScreen may warn the first time you run it.
+          Click **More info → Run anyway**.
+
+          ### Check the download
+
+          SHA-256: \`$hash\`
+
+          \`\`\`powershell
+          (Get-FileHash .\\$EXE -Algorithm SHA256).Hash
+          \`\`\`
+
+          The result should match the hash above (also in \`$EXE.sha256\`). It was built and tested by
+          [this workflow run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}).
+          EOF
+          sed -i 's/^          //' notes.md
+          cat notes.md
+
       - uses: softprops/action-gh-release@v2
         with:
           name: Burp Suite Report Generator ${{ github.ref_name }}
+          body_path: notes.md
           files: |
             dist/*.exe
             dist/*.sha256

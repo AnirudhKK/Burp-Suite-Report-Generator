@@ -101,7 +101,7 @@ class Redactor:
             for c in value.split(";"):
                 k, eq, v = c.partition("=")
                 if eq and v.strip():
-                    self.count += 1
+                    self.count += v.strip() != MASK
                     parts.append(f"{k}={MASK}")
                 else:
                     parts.append(c)
@@ -110,15 +110,15 @@ class Redactor:
             first, semi, attrs = value.partition(";")
             k, eq, v = first.partition("=")
             if eq and v.strip():
-                self.count += 1
+                self.count += v.strip() != MASK
                 return f"{name}: {k}={MASK}{semi}{attrs}"
             return line
         if lname in ("authorization", "proxy-authorization"):
             scheme, _, cred = value.partition(" ")
-            self.count += 1
+            self.count += (cred or scheme).strip() != MASK
             return f"{name}: {scheme} {MASK}" if cred else f"{name}: {MASK}"
         if _SENSITIVE_NAME.search(name) and not _HEADER_ALLOW.match(name) and value.strip():
-            self.count += 1
+            self.count += value.strip() != MASK
             return f"{name}: {MASK}"
         return line
 

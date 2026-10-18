@@ -25,11 +25,16 @@ also has a `.sha256` file for checking the download.
 
 #### How the exe is built (GitHub Actions)
 
-`.github/workflows/build-exe.yml` builds the exe on a Windows runner with PyInstaller, then smoke-tests it
-(`--version`, `--list-templates`, and an HTML + PDF + Word export of the sample scan):
+`.github/workflows/build-exe.yml` runs three jobs on Windows runners:
+
+1. **test**: the unit tests and the web UI tests (see [Tests](#tests)).
+2. **build**: builds the exe with PyInstaller, then checks it: `--version`, `--list-templates`, an HTML + PDF +
+   Word export of the sample scan, and the web UI tests again with the exe serving the app.
+3. **release**: on version tags only, publishes the exe and its `.sha256` as a GitHub Release, with notes
+   covering the SmartScreen prompt and the checksum.
 
 - **Every push and pull request:** the exe and its checksum are attached to the workflow run under
-  **Actions → run → Artifacts**.
+  **Actions → run → Artifacts** (kept 14 days; 90 for releases).
 - **A version tag:** the same build is published as a GitHub Release. To release:
   1. Set `__version__` in `burp_report/__init__.py` (e.g. `"1.1.0"`) and commit it.
   2. Tag and push: `git tag v1.1.0` then `git push origin v1.1.0`. The tag must match `__version__`, or the build stops.
@@ -44,6 +49,44 @@ pyinstaller packaging/BurpReportGenerator.spec    # writes dist/BurpReportGenera
 ```
 
 `packaging/` holds the spec and the icon (`make_icon.py` redraws it; it needs Pillow).
+
+#### Unsigned exe and SmartScreen
+
+The exe is not code-signed (a trusted certificate costs money each year, and a self-signed one doesn't stop the
+warnings). Windows SmartScreen may therefore show **"Windows protected your PC"** the first time it runs: click
+**More info → Run anyway**. Each release's notes say this too.
+
+To confirm a download is the file GitHub Actions built, compare its hash with the release's `.sha256` file:
+
+```powershell
+(Get-FileHash .\BurpReportGenerator-v1.0.0.exe -Algorithm SHA256).Hash
+```
+
+If Microsoft Defender flags a release, submit the exe at
+<https://www.microsoft.com/wdsi/filesubmission> as "incorrectly detected"; this also helps SmartScreen learn the file.
+
+#### Dependency updates
+
+`.github/dependabot.yml` has Dependabot open grouped pull requests every Monday. One PR covers the GitHub
+Actions versions; the other covers the Python packages in `requirements.txt` and `requirements-dev.txt`.
+The workflow tests and builds each PR, so merge it once the checks pass.
+
+## Tests
+
+```powershell
+pip install -r requirements-dev.txt
+python -m pytest                  # everything: unit tests + web UI tests (about 2 minutes)
+python -m pytest -m "not e2e"     # unit tests only (seconds)
+```
+
+- **Unit tests:** `tests/test_*.py` cover the parser, sanitizer, redaction, payload highlighting, OWASP mapping,
+  profiles, HTML and Word rendering, and the command line.
+- **Web UI tests:** `tests/e2e/` starts the app and drives it in Microsoft Edge with Playwright, covering
+  previews, every settings panel, the exports, uploads, the security checks and performance. These tests run in
+  order and share one page.
+  - Set `BURP_REPORT_TEST_BROWSER=chrome` to use Chrome instead.
+  - Set `BURP_REPORT_EXE=path\to\exe` to test a built exe.
+  - Screenshots of failures go to `test-results/`.
 
 ## Exporting from Burp
 
@@ -207,4 +250,7 @@ burp_report/
   fonts/                  bundled OFL fonts embedded into reports
   templates/              _common/ (shared) + corporate/ modern/ minimal/
 samples/sample_burp_export.xml
+tests/                    unit tests; e2e/ holds the web UI tests
+packaging/                PyInstaller spec, icon
+.github/                  build/release workflow and Dependabot config
 ```
