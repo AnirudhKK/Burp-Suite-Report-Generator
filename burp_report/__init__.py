@@ -1,2 +1,2 @@
 """Burp Suite Professional XML -> HTML/PDF report generator."""
-__version__ = "1.0.3"
+__version__ = "1.0.1"
