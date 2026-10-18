@@ -56,6 +56,15 @@ def test_min_severity(tmp_path):
     assert (tmp_path / "r.html").read_text(encoding="utf-8").count('<article class="finding') == 2
 
 
+def test_owasp_flag(tmp_path):
+    assert main([str(SAMPLE), "-y", "--owasp", "2021", "-o", str(tmp_path / "old")]) == 0
+    assert "A03:2021" in (tmp_path / "old.html").read_text(encoding="utf-8")
+    assert main([str(SAMPLE), "-y", "-o", str(tmp_path / "new")]) == 0
+    assert "A05:2025" in (tmp_path / "new.html").read_text(encoding="utf-8")
+    with pytest.raises(SystemExit):
+        main([str(SAMPLE), "-y", "--owasp", "2017"])
+
+
 def test_export_template_then_use_it(tmp_path):
     dest = tmp_path / "mine"
     assert main(["--export-template", "corporate", str(dest)]) == 0

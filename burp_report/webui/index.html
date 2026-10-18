@@ -59,6 +59,7 @@ details.panel > summary .num { width: 22px; height: 22px; border-radius: 50%; ba
 details.panel > summary { white-space: nowrap; }
 details.panel > summary .hint { font-weight: 400; color: var(--muted); font-size: 12px; margin-left: 4px; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pbody { padding: 2px 16px 16px; display: grid; gap: 12px; }
+.stack { display: grid; gap: 12px; }
 
 label.f { display: grid; gap: 4px; font-size: 12px; color: var(--muted); font-weight: 600; }
 label.f input, label.f select, label.f textarea { width: 100%; padding: 7px 9px; border: 1px solid var(--border); border-radius: 6px; background: var(--panel); font-size: 13px; font-weight: 400; }
@@ -210,7 +211,16 @@ body.drag::after { content: "Drop the Burp XML export to load it"; position: fix
 
     <details class="panel">
       <summary><span class="num">3</span>Sections <span class="hint" id="hintSections"></span></summary>
-      <div class="pbody" id="sectionsBox"></div>
+      <div class="pbody">
+        <div class="stack" id="sectionsBox"></div>
+        <label class="f">OWASP Top 10 edition
+          <select data-bind="owasp_edition">
+            <option value="2025">OWASP Top 10:2025 (latest)</option>
+            <option value="2021">OWASP Top 10:2021</option>
+          </select>
+        </label>
+        <p class="note">Used for the mapping section and each finding's OWASP category.</p>
+      </div>
     </details>
 
     <details class="panel">
@@ -383,6 +393,7 @@ function merged(obj) {
   d.confidences = META.confidences.filter((x) => d.confidences.includes(x));
   if (!d.severities.length) d.severities = META.defaults.severities.slice();
   if (!d.confidences.length) d.confidences = META.defaults.confidences.slice();
+  if (!["2025", "2021"].includes(d.owasp_edition)) d.owasp_edition = META.defaults.owasp_edition;
   return d;
 }
 
@@ -582,7 +593,7 @@ function updateHints() {
   const t = META.templates.find((x) => x.key === CFG.template);
   $("hintTemplate").textContent = t ? t.name : "Custom";
   $("hintDetails").textContent = CFG.client || CFG.title;
-  $("hintSections").textContent = `${Object.values(CFG.sections).filter(Boolean).length}/${Object.keys(CFG.sections).length}`;
+  $("hintSections").textContent = `${Object.values(CFG.sections).filter(Boolean).length}/${Object.keys(CFG.sections).length} · OWASP ${CFG.owasp_edition}`;
   $("hintFields").textContent = `${Object.values(CFG.fields).filter(Boolean).length}/${Object.keys(CFG.fields).length}`;
   const ex = CFG.exclude_issue_names.length;
   const allSev = ["High", "Medium", "Low", "Information"].every((s) => CFG.severities.includes(s));

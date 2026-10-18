@@ -16,7 +16,7 @@ from markupsafe import Markup, escape
 
 from . import highlight
 from .config import ReportConfig
-from .owasp import EDITION as OWASP_EDITION, OWASP_2021, categories, parse_cwes
+from .owasp import EDITIONS as OWASP_EDITIONS, categories, edition_label, parse_cwes
 from .parser import CONFIDENCE_RANK, SEVERITIES, SEVERITY_RANK, Issue, ScanReport
 from .redact import Redactor
 from .sanitize import sanitize_html
@@ -109,7 +109,8 @@ class Finding:
     instances: list[Instance] = field(default_factory=list)
     omitted_instances: int = 0
     cwes: list[tuple[int, str]] = field(default_factory=list)       # (id, title) from Burp's classifications
-    owasp: list[tuple[str, str]] = field(default_factory=list)      # (code, name), e.g. ("A03", "Injection")
+    owasp: list[tuple[str, str]] = field(default_factory=list)      # (code, name), e.g. ("A05", "Injection")
+    owasp_edition: str = ""                                         # edition of those codes, e.g. "2025"
 
     @property
     def hosts(self) -> list[str]:
@@ -205,7 +206,8 @@ def build_findings(issues: list[Issue], cfg: ReportConfig, redactor: Redactor | 
             instances=instances, omitted_instances=max(0, len(members) - limit),
         ))
         findings[-1].cwes = parse_cwes(first.classifications)
-        findings[-1].owasp = categories([c for c, _ in findings[-1].cwes])
+        findings[-1].owasp = categories([c for c, _ in findings[-1].cwes], cfg.owasp_edition)
+        findings[-1].owasp_edition = cfg.owasp_edition
 
     sorters = {
         "severity": lambda f: (SEVERITY_RANK.get(f.severity, 9), CONFIDENCE_RANK.get(f.confidence, 9), f.name.lower()),
@@ -230,13 +232,13 @@ def _host_summary(issues: list[Issue]) -> list[dict]:
     return sorted(hosts.values(), key=lambda h: tuple(-h["counts"][s] for s in SEVERITY_ORDER) + (h["host"],))
 
 
-def _owasp_summary(findings: list[Finding]) -> dict:
+def _owasp_summary(findings: list[Finding], edition: str) -> dict:
     rows = []
-    for code, (name, _) in OWASP_2021.items():
+    for code, (name, _) in OWASP_EDITIONS[edition].items():
         members = [f for f in findings if any(c == code for c, _ in f.owasp)]
         rows.append({"code": code, "name": name, "findings": members, "counts": Counter(f.severity for f in members)})
     unmapped = [f for f in findings if not f.owasp]
-    return {"edition": OWASP_EDITION, "rows": rows, "unmapped": unmapped,
+    return {"edition": edition_label(edition), "year": edition, "rows": rows, "unmapped": unmapped,
             "unmapped_counts": Counter(f.severity for f in unmapped),
             "mapped_total": sum(1 for f in findings if f.owasp)}
 
@@ -385,7 +387,7 @@ def build_context(scan: ScanReport, cfg: ReportConfig, output_format: str = "htm
             "filtered_out": len(scan.issues) - len(issues),
         },
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
-        "owasp": _owasp_summary(findings),
+        "owasp": _owasp_summary(findings, cfg.owasp_edition),
         "redaction": {"enabled": cfg.redact_secrets, "custom": len(redactor.custom), "count": redactor.count},
         "theme": {
             "accent": Markup(cfg.accent_color.strip()) if cfg.accent_color and valid_color(cfg.accent_color) else "",

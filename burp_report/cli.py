@@ -19,6 +19,7 @@ from rich.table import Table
 from . import __version__
 from .config import FINDING_FIELDS, OUTPUT_FORMATS, SECTIONS, ReportConfig
 from .docx_export import DOCX_AVAILABLE, DOCX_MISSING, render_docx
+from .owasp import EDITIONS, edition_label
 from .parser import CONFIDENCES, SEVERITIES, ScanReport, parse_burp_xml
 from .pdf import available_engine, html_to_pdf
 from .redact import compile_custom
@@ -183,7 +184,7 @@ def config_overview(cfg: ReportConfig, scan: ScanReport) -> Table:
          + (" · page break per finding" if cfg.page_break_per_finding else "")),
         ("3", "Report details", rx(cfg.title) + (f" · {rx(cfg.client)}" if cfg.client else "")
          + (" · logo" if cfg.logo_path else "")),
-        ("4", "Sections", f"{on_sections}/{len(SECTIONS)} enabled"),
+        ("4", "Sections", f"{on_sections}/{len(SECTIONS)} enabled · {edition_label(cfg.owasp_edition)}"),
         ("5", "Finding fields", f"{on_fields}/{len(FINDING_FIELDS)} enabled"),
         ("6", "Filters", f"{', '.join(cfg.severities) or 'no severities!'} · {', '.join(cfg.confidences)} · {hosts}"
          + (f" · {len(cfg.exclude_issue_names)} issue type(s) excluded" if cfg.exclude_issue_names else "")),
@@ -328,6 +329,11 @@ def edit_details(cfg: ReportConfig) -> None:
 def edit_sections(cfg: ReportConfig) -> None:
     on = toggle_menu("Sections to include", list(SECTIONS.items()), {k for k, v in cfg.sections.items() if v})
     cfg.sections = {k: k in on for k in SECTIONS}
+    editions = list(EDITIONS)
+    pick = choose("OWASP Top 10 edition for the mapping section and finding categories",
+                  [edition_label(e) + (" (latest)" if n == 0 else "") for n, e in enumerate(editions)],
+                  editions.index(cfg.owasp_edition) + 1)
+    cfg.owasp_edition = editions[pick]
 
 
 def edit_fields(cfg: ReportConfig) -> None:
@@ -534,6 +540,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--client", help="client name")
     p.add_argument("--min-severity", choices=["High", "Medium", "Low", "Information"],
                    help="include this severity and above")
+    p.add_argument("--owasp", choices=list(EDITIONS), metavar="EDITION",
+                   help=f"OWASP Top 10 edition for the mapping: {' or '.join(EDITIONS)} (default {next(iter(EDITIONS))})")
     p.add_argument("-y", "--batch", action="store_true", help="no prompts: generate straight away")
     p.add_argument("--cli", action="store_true", help="use the terminal wizard instead of the web UI")
     p.add_argument("--port", type=int, default=0, help="web UI port (default: random free port)")
@@ -552,7 +560,7 @@ def run_web(args: argparse.Namespace) -> int:
     except (OSError, ValueError) as exc:
         console.print(f"[bold red]Could not load profile:[/] {rx(str(exc))}")
         return 2
-    overrides = {"template": args.template, "title": args.title, "client": args.client}
+    overrides = {"template": args.template, "title": args.title, "client": args.client, "owasp_edition": args.owasp}
     if any(overrides.values()) or args.min_severity:
         profile = profile or ReportConfig()
         for k, v in overrides.items():
@@ -632,6 +640,8 @@ def main(argv: list[str] | None = None) -> int:
         cfg.client = args.client
     if args.min_severity:
         cfg.severities = SEVERITIES[: SEVERITIES.index(args.min_severity) + 1]
+    if args.owasp:
+        cfg.owasp_edition = args.owasp
     try:
         resolve_template(cfg.template)
     except FileNotFoundError as exc:

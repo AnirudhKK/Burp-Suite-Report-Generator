@@ -141,7 +141,7 @@ the tool with the bundled example.
 |---|---|
 | Template & styling | Template cards with live thumbnails of *your* scan · accent colour (swatches or picker) · font · custom template folder |
 | Report details | Title, subtitle, client, prepared by, organisation, date, version, classification label, finding ID prefix, logo upload |
-| Sections | Which report sections appear (see [section 8](#8-what-goes-into-a-report)) |
+| Sections | Which report sections appear (see [section 8](#8-what-goes-into-a-report)) · OWASP Top 10 edition (2025 or 2021) |
 | Finding fields | Which parts of each finding appear |
 | Filters | Severity and confidence chips · hosts checklist · searchable issue-type list for dropping false positives |
 | Grouping & sorting | One finding per issue type, or one per instance · sort by severity, name, host or count |
@@ -179,7 +179,7 @@ A short quick setup (formats, template, title, client, author) leads to the sett
 | 1 | Output | HTML, PDF and/or Word · output path · search/filter toolbar in the HTML report |
 | 2 | Template & styling | Built-in or custom template · accent colour · font · page break per finding · export a template to edit |
 | 3 | Report details | Title, subtitle, client, assessor, company, date, version, classification, logo |
-| 4 | Sections | Cover, contents, executive summary, scope, risk chart, findings table, hosts table, OWASP mapping, detailed findings, appendix |
+| 4 | Sections | Cover, contents, executive summary, scope, risk chart, findings table, hosts table, OWASP mapping, detailed findings, appendix · OWASP Top 10 edition |
 | 5 | Finding fields | Description, issue detail, detail items, remediation, references, CWE/CAPEC, CWE & OWASP category, affected URLs, evidence |
 | 6 | Filters | Severities, confidence levels, hosts, individual issue types |
 | 7 | Grouping & sorting | Group by issue type or list each instance · sort order · finding ID prefix |
@@ -216,6 +216,7 @@ BurpReportGenerator-v<version>.exe [xml] [options]
 | `--title TEXT` | Report title. |
 | `--client TEXT` | Client name. |
 | `--min-severity LEVEL` | Include this severity and above: `High`, `Medium`, `Low` or `Information`. |
+| `--owasp EDITION` | OWASP Top 10 edition for the mapping: `2025` (default) or `2021`. |
 | `--port N` | Web UI port. Default: a random free port. |
 | `--no-browser` | Start the web UI without opening a browser. |
 | `--list-templates` | List the built-in templates and exit. |
@@ -277,6 +278,7 @@ Profiles are forgiving:
 | `finding_id_prefix` | string | `"F-"` | Finding IDs become F-1, F-2, … |
 | `executive_summary`, `scope`, `footer_text` | string | `""` | Free text; blank lines separate paragraphs. A blank summary is auto-written. |
 | `sections` | object | all `true` | See [section 8](#8-what-goes-into-a-report) |
+| `owasp_edition` | string | `"2025"` | OWASP Top 10 edition: `"2025"` or `"2021"` (see [section 10](#10-owasp-top-10-and-cwe)) |
 | `fields` | object | all `true` | See [section 8](#8-what-goes-into-a-report) |
 | `severities` | list | High, Medium, Low, Information | Add `"False positive"` to include those |
 | `confidences` | list | Certain, Firm, Tentative | |
@@ -319,7 +321,7 @@ Example:
 | `risk_chart` | Severity tiles and chart |
 | `findings_table` | Summary table of all findings (with a CWE column when `cwe_owasp` is on) |
 | `hosts_table` | Affected hosts with counts per severity |
-| `owasp_table` | OWASP Top 10 (2021) mapping |
+| `owasp_table` | OWASP Top 10 mapping (edition set by `owasp_edition`) |
 | `findings` | Detailed findings |
 | `scan_info` | Appendix: source file, Burp version, export time, filters, redaction count |
 
@@ -387,13 +389,43 @@ What redaction does and doesn't change:
 
 Burp's export lists the CWEs for each issue type. The report uses them in three places:
 
-- **Each finding:** the CWE IDs and titles, and the OWASP Top 10 (2021) categories they fall under.
+- **Each finding:** the CWE IDs and titles, and the OWASP Top 10 categories they fall under, tagged with the
+  edition (e.g. `A05:2025 Injection`).
 - **Findings summary table:** a CWE column.
-- **OWASP Top 10 (2021) mapping section:** one row per category (A01–A10) with severity counts and links to the
+- **OWASP Top 10 mapping section:** one row per category (A01–A10) with severity counts and links to the
   matching findings, plus a "Not mapped" row.
 
-The mapping uses OWASP's published CWE lists for each category, bundled in `burp_report/owasp.py`, so no
-internet connection is needed. A finding can fall into more than one category.
+### Choosing the edition
+
+**OWASP Top 10:2025** is the default. Choose **2021** instead when a client, contract or compliance document
+still refers to the older list. All headings and category tags follow the edition you choose.
+
+| Where | How |
+|---|---|
+| Web UI | **Sections → OWASP Top 10 edition** |
+| Terminal wizard | Menu **4 (Sections)**, then pick the edition |
+| Command line | `--owasp 2025` or `--owasp 2021` |
+| Profile | `"owasp_edition": "2025"` or `"2021"` |
+
+The two editions side by side:
+
+| Code | 2025 (default) | 2021 |
+|---|---|---|
+| A01 | Broken Access Control (now includes SSRF) | Broken Access Control |
+| A02 | Security Misconfiguration | Cryptographic Failures |
+| A03 | Software Supply Chain Failures | Injection |
+| A04 | Cryptographic Failures | Insecure Design |
+| A05 | Injection | Security Misconfiguration |
+| A06 | Insecure Design | Vulnerable and Outdated Components |
+| A07 | Authentication Failures | Identification and Authentication Failures |
+| A08 | Software or Data Integrity Failures | Software and Data Integrity Failures |
+| A09 | Security Logging & Alerting Failures | Security Logging and Monitoring Failures |
+| A10 | Mishandling of Exceptional Conditions | Server-Side Request Forgery (SSRF) |
+
+The mapping uses the CWE list OWASP publishes for each category ("List of Mapped CWEs"), taken from OWASP's
+source at [github.com/OWASP/Top10](https://github.com/OWASP/Top10) and bundled in `burp_report/owasp.py`, so no
+internet connection is needed. A finding can fall into more than one category. A finding whose CWEs aren't in any
+category's list appears under "Not mapped".
 
 ## 11. Word export
 
@@ -514,7 +546,7 @@ already has a template.
 | `severities`, `counts`, `instance_counts` | Severities in use; finding and instance counts per severity |
 | `total_findings`, `total_instances`, `max_count` | Totals and the largest severity count (for charts) |
 | `hosts` | Per-host summary rows |
-| `owasp` | `edition`, `rows` (`code`, `name`, `findings`, `counts`), `unmapped`, `mapped_total` |
+| `owasp` | `edition` (e.g. "OWASP Top 10:2025"), `year`, `rows` (`code`, `name`, `findings`, `counts`), `unmapped`, `mapped_total` |
 | `sections`, `fields` | The on/off switches from [section 8](#8-what-goes-into-a-report) |
 | `executive_summary`, `scope` | Ready-to-insert HTML paragraphs |
 | `scan` | `source`, `burp_version`, `export_time`, `total_issues`, `filtered_out` |
@@ -525,7 +557,7 @@ Each finding has these fields:
 - `id`, `anchor`, `name`, `severity`, `confidence`;
 - `issue_background`, `remediation_background`, `references`, `classifications`;
 - `cwes`, a list of (id, title);
-- `owasp`, a list of (code, name);
+- `owasp`, a list of (code, name), and `owasp_edition` (e.g. "2025");
 - `hosts`, `count`, `omitted_instances`;
 - `instances`, each with `url`, `host`, `path`, `issue_detail`, `detail_items`, `remediation_detail` and
   `evidence`.
@@ -674,7 +706,7 @@ burp_report/
   render.py                 filtering, grouping, context building, Jinja2 rendering, font embedding
   redact.py                 secret redaction for evidence
   highlight.py              payload highlighting in evidence
-  owasp.py                  CWE → OWASP Top 10 (2021) mapping
+  owasp.py                  CWE → OWASP Top 10 mapping (2025 and 2021 editions)
   docx_export.py            Word (.docx) export
   pdf.py                    HTML → PDF (Edge/Chrome headless, WeasyPrint fallback)
   cli.py                    command-line options and terminal wizard

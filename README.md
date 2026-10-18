@@ -9,7 +9,7 @@ Turn a **Burp Suite Professional XML export** into a polished, client-ready secu
 - **Three templates** (Corporate, Modern, Minimal) with your own accent colour, fonts and logo, or build your own.
 - **Choose what goes in:** sections, finding fields, severity/confidence/host filters, and issue types to drop.
 - **HTTP evidence** with the attack payload highlighted, and secrets automatically redacted.
-- **OWASP Top 10 (2021) and CWE** mapping for every finding.
+- **OWASP Top 10:2025 and CWE** mapping for every finding (the 2021 edition is available as an option).
 - **Fully offline:** fonts and mappings are bundled; nothing leaves your machine.
 
 Full guide: **[Documentation.md](Documentation.md)**
@@ -98,6 +98,7 @@ With the exe, replace `python generate_report.py` with `.\BurpReportGenerator-v<
 | `-p`, `--profile` | Load settings from a saved JSON profile |
 | `--title`, `--client` | Report title and client name |
 | `--min-severity` | `High`, `Medium`, `Low` or `Information` and above |
+| `--owasp` | OWASP Top 10 edition: `2025` (default) or `2021` |
 | `--port`, `--no-browser` | Web UI port; don't open the browser |
 | `--list-templates` | List built-in templates |
 | `--export-template NAME DEST` | Copy a template to edit |

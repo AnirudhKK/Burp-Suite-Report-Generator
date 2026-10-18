@@ -356,11 +356,22 @@ def test_owasp_section(page):
     sec = preview(page).locator("#owasp")
     expect(sec).to_be_attached()
     expect(sec.locator("tbody tr")).to_have_count(11)   # A01-A10 + not mapped
-    expect(sec.locator("tr", has_text="A03").locator("a.fid")).to_have_count(2)
+    expect(sec.locator("h2")).to_have_text("OWASP Top 10:2025 mapping")
+    expect(sec.locator("tr", has_text="A05").locator("a.fid")).to_have_count(2)
     expect(preview(page).locator(".toc a[href='#owasp']")).to_have_count(1)
     expect(preview(page).locator("#finding-1 .finding-meta")).to_contain_text("CWE-79")
-    expect(preview(page).locator("#finding-1 .finding-meta")).to_contain_text("A03:2021")
+    expect(preview(page).locator("#finding-1 .finding-meta")).to_contain_text("A05:2025")
     open_panel(page, 3)
+    expect(page.locator("[data-bind='owasp_edition']")).to_have_value("2025")
+    page.select_option("[data-bind='owasp_edition']", "2021")
+    wait_ready(page)
+    expect(sec.locator("h2")).to_have_text("OWASP Top 10:2021 mapping")
+    expect(sec.locator("tr", has_text="A03").locator("a.fid")).to_have_count(2)
+    expect(preview(page).locator("#finding-1 .finding-meta")).to_contain_text("A03:2021")
+    expect(page.locator("#hintSections")).to_contain_text("OWASP 2021")
+    page.select_option("[data-bind='owasp_edition']", "2025")
+    wait_ready(page)
+    expect(preview(page).locator("#finding-1 .finding-meta")).to_contain_text("A05:2025")
     page.locator("#sectionsBox label[data-key='owasp_table'] input").uncheck()
     wait_ready(page)
     expect(preview(page).locator("#owasp")).to_have_count(0)
@@ -381,7 +392,7 @@ def test_export_word(page, dl):
     assert d.value.suggested_filename.endswith(".docx"), d.value.suggested_filename
     with zipfile.ZipFile(path) as z:
         xml = z.read("word/document.xml").decode("utf-8")
-    for needle in ("OWASP Top 10 mapping", "[REDACTED]", 'w:highlight w:val="yellow"', "CWE-79", "TOC \\o"):
+    for needle in ("OWASP Top 10:2025 mapping", "[REDACTED]", 'w:highlight w:val="yellow"', "CWE-79", "TOC \\o"):
         assert needle in xml, f"missing {needle!r} in document.xml"
     assert SESSION_COOKIE not in xml, "unredacted cookie in Word export"
     expect(page.locator("#exportDocx")).to_be_enabled()

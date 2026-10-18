@@ -100,7 +100,7 @@
     <tr><th>CWE</th><td colspan="3">{% for id, title in f.cwes %}<span class="cwe">CWE-{{ id }}</span>{% if title %} {{ title }}{% endif %}{% if not loop.last %}<br>{% endif %}{% endfor %}</td></tr>
     {% endif %}
     {% if fields.cwe_owasp and f.owasp %}
-    <tr><th>OWASP Top 10</th><td colspan="3">{% for code, name in f.owasp %}<span class="owasp-tag">{{ code }}:2021</span> {{ name }}{% if not loop.last %}<br>{% endif %}{% endfor %}</td></tr>
+    <tr><th>OWASP Top 10</th><td colspan="3">{% for code, name in f.owasp %}<span class="owasp-tag">{{ code }}:{{ f.owasp_edition }}</span> {{ name }}{% if not loop.last %}<br>{% endif %}{% endfor %}</td></tr>
     {% endif %}
     {% if f.type_id %}<tr><th>Burp issue type</th><td colspan="3">{{ f.type_id }}</td></tr>{% endif %}
   </table>

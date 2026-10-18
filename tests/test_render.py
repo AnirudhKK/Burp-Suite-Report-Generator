@@ -50,11 +50,26 @@ def test_payload_highlighting_toggle(sample_scan, cfg):
     assert '<mark class="hl">' not in render_html(sample_scan, cfg)
 
 
-def test_owasp_summary(sample_scan, cfg):
+def test_owasp_2025_by_default(sample_scan, cfg):
     owasp = build_context(sample_scan, cfg)["owasp"]
     rows = {r["code"]: r for r in owasp["rows"]}
-    assert len(rows) == 10
-    assert len(rows["A03"]["findings"]) == 2   # XSS + SQL injection
+    assert owasp["edition"] == "OWASP Top 10:2025" and len(rows) == 10
+    assert len(rows["A05"]["findings"]) == 2   # XSS + SQL injection
+    assert rows["A05"]["name"] == "Injection"
+    html = render_html(sample_scan, cfg)
+    assert "OWASP Top 10:2025 mapping</h2>" in html and "A05:2025</span> Injection" in html
+    assert ":2021" not in html
+
+
+def test_owasp_2021_on_request(sample_scan, cfg):
+    cfg.owasp_edition = "2021"
+    owasp = build_context(sample_scan, cfg)["owasp"]
+    rows = {r["code"]: r for r in owasp["rows"]}
+    assert owasp["edition"] == "OWASP Top 10:2021"
+    assert len(rows["A03"]["findings"]) == 2 and rows["A03"]["name"] == "Injection"
+    html = render_html(sample_scan, cfg)
+    assert "OWASP Top 10:2021 mapping</h2>" in html and "A03:2021</span> Injection" in html
+    assert ":2025" not in html
 
 
 def test_sections_and_filters(sample_scan, cfg):
@@ -84,6 +99,17 @@ def test_word_export(sample_scan, cfg):
     data = render_docx(sample_scan, cfg)
     with zipfile.ZipFile(io.BytesIO(data)) as z:
         xml = z.read("word/document.xml").decode("utf-8")
-    for needle in ("OWASP Top 10 mapping", "[REDACTED]", 'w:highlight w:val="yellow"', "CWE-79", "TOC \\o"):
+    for needle in ("OWASP Top 10:2025 mapping", "A05:2025 Injection", "[REDACTED]", 'w:highlight w:val="yellow"',
+                   "CWE-79", "TOC \\o"):
         assert needle in xml, needle
     assert SESSION_COOKIE not in xml
+
+
+def test_word_export_2021(sample_scan, cfg):
+    from burp_report.docx_export import DOCX_AVAILABLE, render_docx
+    if not DOCX_AVAILABLE:
+        pytest.skip("python-docx not installed")
+    cfg.owasp_edition = "2021"
+    with zipfile.ZipFile(io.BytesIO(render_docx(sample_scan, cfg))) as z:
+        xml = z.read("word/document.xml").decode("utf-8")
+    assert "OWASP Top 10:2021 mapping" in xml and "A03:2021 Injection" in xml and ":2025" not in xml

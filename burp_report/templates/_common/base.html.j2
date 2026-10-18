@@ -81,7 +81,7 @@
     {% if sections.scope and scope %}<li><a href="#scope">Scope &amp; methodology</a></li>{% endif %}
     {% if sections.risk_chart or sections.findings_table %}<li><a href="#overview">Findings overview</a></li>{% endif %}
     {% if sections.hosts_table %}<li><a href="#hosts">Affected hosts</a></li>{% endif %}
-    {% if sections.owasp_table %}<li><a href="#owasp">OWASP Top 10 mapping</a></li>{% endif %}
+    {% if sections.owasp_table %}<li><a href="#owasp">{{ owasp.edition }} mapping</a></li>{% endif %}
     {% if sections.findings %}
     <li><a href="#findings">Detailed findings</a>
       <ol class="toc-findings">
@@ -170,7 +170,7 @@
 {% block owasp %}
 {% if sections.owasp_table %}
 <section class="section" id="owasp">
-  <h2>OWASP Top 10 mapping</h2>
+  <h2>{{ owasp.edition }} mapping</h2>
   <p class="muted small">Findings mapped to the {{ owasp.edition }} categories using the CWE identifiers in Burp's export.
     A finding can map to more than one category. {{ owasp.mapped_total }} of {{ total_findings }} finding{{ 's' if total_findings != 1 }} mapped.</p>
   <table class="data owasp-table">

@@ -684,7 +684,7 @@ class _Builder:
             self.heading("Affected hosts", anchor="hosts", page_break=pb())
             self.hosts_table()
         if s.get("owasp_table"):
-            self.heading("OWASP Top 10 mapping", anchor="owasp", page_break=pb())
+            self.heading(f"{self.ctx['owasp']['edition']} mapping", anchor="owasp", page_break=pb())
             self.owasp_table()
         if s.get("findings"):
             self.heading("Detailed findings", anchor="findings", page_break=True)
@@ -762,7 +762,7 @@ class _Builder:
             ("scope", "Scope & methodology", s.get("scope") and c["scope"]),
             ("overview", "Findings overview", s.get("risk_chart") or s.get("findings_table")),
             ("hosts", "Affected hosts", s.get("hosts_table")),
-            ("owasp", "OWASP Top 10 mapping", s.get("owasp_table")),
+            ("owasp", f"{c['owasp']['edition']} mapping", s.get("owasp_table")),
             ("findings", "Detailed findings", s.get("findings")),
             ("scan_info", "Appendix: scan information", s.get("scan_info")),
         ):
@@ -902,7 +902,7 @@ class _Builder:
         if fields.get("cwe_owasp") and f.cwes:
             meta.append(("CWE", "\n".join(f"CWE-{i}" + (f": {t}" if t else "") for i, t in f.cwes)))
         if fields.get("cwe_owasp") and f.owasp:
-            meta.append(("OWASP Top 10", "\n".join(f"{code}:2021 {name}" for code, name in f.owasp)))
+            meta.append(("OWASP Top 10", "\n".join(f"{code}:{f.owasp_edition} {name}" for code, name in f.owasp)))
         if f.type_id:
             meta.append(("Burp issue type", f.type_id))
         self.kv_table([(k, v if callable(v) else _multiline(v)) for k, v in meta])

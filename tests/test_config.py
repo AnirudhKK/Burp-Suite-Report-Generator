@@ -25,8 +25,15 @@ def test_wrongly_typed_values_keep_defaults():
 
 def test_unknown_formats_and_sort_are_dropped():
     cfg = ReportConfig.from_dict({"output_formats": ["exe", "pdf"], "sort_by": "nonsense",
-                                  "max_instances_per_finding": -5})
+                                  "max_instances_per_finding": -5, "owasp_edition": "2017"})
     assert cfg.output_formats == ["pdf"] and cfg.sort_by == "severity" and cfg.max_instances_per_finding == 0
+    assert cfg.owasp_edition == "2025"
+
+
+def test_owasp_edition():
+    assert ReportConfig().owasp_edition == "2025"
+    assert ReportConfig.from_dict({"owasp_edition": "2021"}).owasp_edition == "2021"
+    assert ReportConfig.from_dict({}).owasp_edition == "2025", "profiles saved before the setting existed get 2025"
 
 
 def test_old_profiles_gain_new_sections_and_fields():

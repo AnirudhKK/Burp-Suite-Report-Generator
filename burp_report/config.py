@@ -5,6 +5,8 @@ import json
 from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
 
+from .owasp import DEFAULT_EDITION, EDITIONS
+
 SECTIONS = {
     "cover": "Cover page",
     "toc": "Table of contents",
@@ -13,7 +15,7 @@ SECTIONS = {
     "risk_chart": "Risk overview chart",
     "findings_table": "Findings summary table",
     "hosts_table": "Affected hosts table",
-    "owasp_table": "OWASP Top 10 (2021) mapping",
+    "owasp_table": "OWASP Top 10 mapping",
     "findings": "Detailed findings",
     "scan_info": "Scan information appendix",
 }
@@ -66,6 +68,7 @@ class ReportConfig:
     # Sections & per-finding fields
     sections: dict[str, bool] = field(default_factory=lambda: {k: True for k in SECTIONS})
     fields: dict[str, bool] = field(default_factory=lambda: {k: True for k in FINDING_FIELDS})
+    owasp_edition: str = DEFAULT_EDITION   # OWASP Top 10 edition for the mapping: "2025" or "2021"
 
     # Filters
     severities: list[str] = field(default_factory=lambda: ["High", "Medium", "Low", "Information"])
@@ -125,4 +128,6 @@ class ReportConfig:
         cfg.output_formats = [f for f in OUTPUT_FORMATS if f in cfg.output_formats] or ["html"]
         if cfg.sort_by not in ("severity", "name", "host", "count"):
             cfg.sort_by = "severity"
+        if cfg.owasp_edition not in EDITIONS:
+            cfg.owasp_edition = DEFAULT_EDITION
         return cfg
