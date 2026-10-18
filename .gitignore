@@ -1,0 +1,47 @@
+# --- AI assistant / prompt files ---
+.claude/
+CLAUDE.md
+CLAUDE.local.md
+.claudeignore
+.mcp.json
+AGENTS.md
+.cursor/
+.cursorrules
+.cursorignore
+.windsurfrules
+.aider*
+.continue/
+.github/copilot-instructions.md
+.github/prompts/
+prompts/
+*.prompt
+*.prompt.md
+*.prompt.txt
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Build output (the exe is built by GitHub Actions) ---
+build/
+dist/
+Releases/
+*.exe
+
+# --- Generated reports and local settings ---
+reports/
+smoke/
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/

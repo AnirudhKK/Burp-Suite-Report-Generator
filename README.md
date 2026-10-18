@@ -17,18 +17,33 @@ to a Chromium browser executable, or `pip install weasyprint` as a fallback.
 
 ### Windows executable (no Python needed)
 
-`Releases/BurpReportGenerator-v1.0.exe` is a single self-contained file. Double-click it to open the web UI, or
-use it from a terminal exactly like `generate_report.py`, for example
-`BurpReportGenerator-v1.0.exe scan.xml -y -f all -o reports\acme`. PDF export still uses the Edge or Chrome
-installed on the machine. Startup takes a few seconds while it unpacks to a temporary folder.
+Download `BurpReportGenerator-v<version>.exe` from the repository's **Releases** page. It is a single
+self-contained file. Double-click it to open the web UI, or use it from a terminal exactly like `generate_report.py`,
+for example `BurpReportGenerator-v1.0.0.exe scan.xml -y -f all -o reports\acme`. PDF export still uses the Edge or
+Chrome installed on the machine. Startup takes a few seconds while it unpacks to a temporary folder. Each release
+also has a `.sha256` file for checking the download.
 
-To rebuild it (from the project root, with `requirements.txt` and `pyinstaller` installed):
+#### How the exe is built (GitHub Actions)
+
+`.github/workflows/build-exe.yml` builds the exe on a Windows runner with PyInstaller, then smoke-tests it
+(`--version`, `--list-templates`, and an HTML + PDF + Word export of the sample scan):
+
+- **Every push and pull request:** the exe and its checksum are attached to the workflow run under
+  **Actions → run → Artifacts**.
+- **A version tag:** the same build is published as a GitHub Release. To release:
+  1. Set `__version__` in `burp_report/__init__.py` (e.g. `"1.1.0"`) and commit it.
+  2. Tag and push: `git tag v1.1.0` then `git push origin v1.1.0`. The tag must match `__version__`, or the build stops.
+- **By hand:** **Actions → Build Windows exe → Run workflow**.
+
+The exe's file name and its Windows version details are both taken from `__version__`.
+
+To build locally instead (from the project root, with `requirements.txt` and `pyinstaller` installed):
 
 ```powershell
-pyinstaller packaging/BurpReportGenerator.spec --distpath Releases
+pyinstaller packaging/BurpReportGenerator.spec    # writes dist/BurpReportGenerator-v<version>.exe
 ```
 
-`packaging/` holds the spec, the Windows version details and the icon (`make_icon.py` redraws it; it needs Pillow).
+`packaging/` holds the spec and the icon (`make_icon.py` redraws it; it needs Pillow).
 
 ## Exporting from Burp
 
