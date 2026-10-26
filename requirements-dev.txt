@@ -1,5 +1,5 @@
 # Tests and the exe build. Exact versions keep CI builds repeatable; Dependabot proposes updates.
 -r requirements.txt
 pytest==9.1.1
-playwright==1.64.0
+playwright==1.64.1
 pyinstaller==6.22.3
