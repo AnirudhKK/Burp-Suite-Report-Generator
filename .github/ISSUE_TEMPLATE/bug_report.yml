@@ -1,0 +1,80 @@
+name: Bug report
+description: Something doesn't work as documented.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a problem.
+
+        ⚠️ **Never attach real client data:** no real Burp exports, reports, profiles or screenshots showing hosts,
+        cookies or findings. If the problem needs an input file, make a minimal one with made-up values
+        (or start from `samples/sample_burp_export.xml`).
+
+        **Security problems** go to [private vulnerability reporting](https://github.com/AnirudhKK/Burp-Suite-Report-Generator/security/advisories/new), not here.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+      placeholder: |
+        1. Loaded an export with ...
+        2. Chose the Modern template and exported PDF
+        3. Expected ..., but ...
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Output of `--version` (e.g. `burp-report 1.0.5`).
+      placeholder: burp-report 1.0.5
+    validations:
+      required: true
+
+  - type: dropdown
+    id: install
+    attributes:
+      label: How do you run it?
+      options:
+        - Windows exe
+        - Python (python generate_report.py)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Which mode?
+      multiple: true
+      options:
+        - Web UI
+        - Terminal wizard (--cli)
+        - Batch (-y)
+
+  - type: dropdown
+    id: format
+    attributes:
+      label: Which output is affected?
+      multiple: true
+      options:
+        - HTML
+        - PDF
+        - Word (.docx)
+        - Not output-specific
+
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Operating system, browser used for PDF (Edge/Chrome and version), Python version if not the exe, Burp version that made the export.
+      placeholder: Windows 11 24H2, Edge 141, Burp Suite Professional 2026.9
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error message or console output
+      description: Paste any error text from the console or the web UI. Remove hostnames or other client details first.
+      render: text

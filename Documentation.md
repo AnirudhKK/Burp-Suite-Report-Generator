@@ -71,13 +71,13 @@ python generate_report.py --version
    `.sha256` file if you want to verify it.
 2. Optional: check the download. The two hashes must match.
    ```powershell
-   (Get-FileHash .\BurpReportGenerator-v1.0.3.exe -Algorithm SHA256).Hash
-   Get-Content .\BurpReportGenerator-v1.0.3.exe.sha256
+   (Get-FileHash .\BurpReportGenerator-v1.0.5.exe -Algorithm SHA256).Hash
+   Get-Content .\BurpReportGenerator-v1.0.5.exe.sha256
    ```
 3. Double-click the exe to open the web UI, or run it from a terminal with the same options as
    `generate_report.py`:
    ```powershell
-   .\BurpReportGenerator-v1.0.3.exe scan.xml -y -f all -o reports\acme
+   .\BurpReportGenerator-v1.0.5.exe scan.xml -y -f all -o reports\acme
    ```
 
 Notes:
@@ -483,7 +483,7 @@ font's licence text sits next to it.
 ```powershell
 python generate_report.py --export-template corporate my_template
 # or, with the exe:
-.\BurpReportGenerator-v1.0.3.exe --export-template corporate my_template
+.\BurpReportGenerator-v1.0.5.exe --export-template corporate my_template
 ```
 
 This copies the template and the shared files into `my_template/`. It refuses to overwrite a folder that
@@ -653,6 +653,28 @@ Every Monday, Dependabot (`.github/dependabot.yml`) opens two grouped pull reque
 
 The workflow tests and builds each one, so merge it once the checks pass.
 
+Every action in the workflows is pinned to a full commit SHA, with the version in a comment, for example
+`actions/checkout@3d3c42e… # v7.0.1`. A tag can be moved to different code, but a commit can't, so a compromised
+or re-tagged action can't change what runs. Dependabot updates the SHA and the comment together.
+
+### Code scanning (CodeQL)
+
+`.github/workflows/codeql.yml` runs GitHub's CodeQL security analysis:
+- **What it scans:** the Python code and the GitHub Actions workflows.
+- **When:** on every push and pull request to `main`, every Monday, and on demand.
+- **Queries:** the extended security query set.
+- **Results:** under **Security → Code scanning**. A pull request that introduces an issue shows it as a check.
+
+CodeQL is free for public repositories. A private repository needs GitHub Advanced Security, and without it this
+workflow fails.
+
+### Reporting problems
+
+- **Bugs and feature requests:** open an issue. The templates ask for the version, the mode and the output
+  format, and remind reporters never to attach real client data.
+- **Security vulnerabilities:** report them privately, as described in [SECURITY.md](SECURITY.md).
+- **Release history:** see [CHANGELOG.md](CHANGELOG.md).
+
 ## 16. Tests
 
 ```powershell
@@ -661,7 +683,7 @@ python -m pytest                      # everything (about 2 minutes)
 python -m pytest -m "not e2e"         # unit tests only (seconds)
 python -m pytest tests/e2e            # web UI tests only
 python -m pytest -k redact -v         # tests whose name matches "redact"
-$env:BURP_REPORT_EXE = "dist\BurpReportGenerator-v1.0.3.exe"; python -m pytest tests/e2e   # test a built exe
+$env:BURP_REPORT_EXE = "dist\BurpReportGenerator-v1.0.5.exe"; python -m pytest tests/e2e   # test a built exe
 ```
 
 | Suite | Location | Covers |
@@ -727,10 +749,15 @@ packaging/
   icon.ico, make_icon.py    app icon
 .github/
   workflows/build-exe.yml   test → build → release workflow
+  workflows/codeql.yml      CodeQL code scanning
+  ISSUE_TEMPLATE/           bug report and feature request forms
   dependabot.yml            weekly dependency update PRs
 requirements.txt            runtime dependencies
 requirements-dev.txt        test and build dependencies (pinned)
 pytest.ini                  test settings
 README.md                   quick start
 Documentation.md            this guide
+CHANGELOG.md                release history
+SECURITY.md                 how to report vulnerabilities
+LICENSE                     MIT licence (fonts: SIL OFL 1.1)
 ```

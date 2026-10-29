@@ -2,6 +2,8 @@
 
 [![Build Windows exe](https://github.com/AnirudhKK/Burp-Suite-Report-Generator/actions/workflows/build-exe.yml/badge.svg)](https://github.com/AnirudhKK/Burp-Suite-Report-Generator/actions/workflows/build-exe.yml)
 [![Latest release](https://img.shields.io/github/v/release/AnirudhKK/Burp-Suite-Report-Generator)](https://github.com/AnirudhKK/Burp-Suite-Report-Generator/releases/latest)
+[![CodeQL](https://github.com/AnirudhKK/Burp-Suite-Report-Generator/actions/workflows/codeql.yml/badge.svg)](https://github.com/AnirudhKK/Burp-Suite-Report-Generator/actions/workflows/codeql.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Turn a **Burp Suite Professional XML export** into a polished, client-ready security report in **HTML**,
 **PDF** or **Word**. You design it in a local web app with a live preview, or generate it from the command line.
@@ -12,7 +14,7 @@ Turn a **Burp Suite Professional XML export** into a polished, client-ready secu
 - **OWASP Top 10:2025 and CWE** mapping for every finding (the 2021 edition is available as an option).
 - **Fully offline:** fonts and mappings are bundled; nothing leaves your machine.
 
-Full guide: **[Documentation.md](Documentation.md)**
+Full guide: **[Documentation.md](Documentation.md)** · What's new: **[CHANGELOG.md](CHANGELOG.md)**
 
 ---
 
@@ -41,7 +43,7 @@ python generate_report.py             # opens the web UI in your browser
 To check the download, compare its hash with the release's `.sha256` file:
 
 ```powershell
-(Get-FileHash .\BurpReportGenerator-v1.0.3.exe -Algorithm SHA256).Hash
+(Get-FileHash .\BurpReportGenerator-v1.0.5.exe -Algorithm SHA256).Hash
 ```
 
 PDF export uses Microsoft Edge or Google Chrome on your PC. Edge ships with Windows, so this usually needs nothing
@@ -135,6 +137,8 @@ variable.
   runs under a strict Content Security Policy.
 - **Privacy:** no data is sent anywhere. Everything, including PDF rendering, happens locally.
 
+Found a vulnerability? Please report it privately; see [SECURITY.md](SECURITY.md).
+
 ## Layout
 
 ```text
@@ -150,6 +154,13 @@ burp_report/              the application
 samples/                  example Burp export
 tests/                    unit tests + e2e/ web UI tests
 packaging/                PyInstaller spec and icon
-.github/                  build/release workflow, Dependabot
+.github/                  build/release and CodeQL workflows, Dependabot, issue templates
 Documentation.md          full guide
+CHANGELOG.md              release history
+SECURITY.md               how to report vulnerabilities
 ```
+
+## License
+
+[MIT](LICENSE). The bundled fonts are licensed separately under the SIL Open Font License 1.1; each
+font's licence text is next to it in `burp_report/fonts/`.
