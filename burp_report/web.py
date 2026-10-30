@@ -26,7 +26,7 @@ from .pdf import available_engine, html_to_pdf
 from .render import list_templates, render_html, resolve_template
 
 WEBUI_DIR = Path(__file__).parent / "webui"
-SAMPLE_XML = Path(__file__).resolve().parent.parent / "samples" / "sample_burp_export.xml"
+SAMPLE_XML = Path(__file__).resolve().parent / "samples" / "sample_burp_export.xml"
 MAX_UPLOAD = 256 * 1024 * 1024
 MAX_PREVIEWS = 6
 PDF_SLOTS = threading.BoundedSemaphore(2)   # cap concurrent headless-browser renders

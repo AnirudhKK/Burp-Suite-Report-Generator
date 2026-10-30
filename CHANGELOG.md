@@ -5,7 +5,22 @@ All notable changes to this project are listed here. The format follows
 [Semantic Versioning](https://semver.org/). Download releases from the
 [Releases page](https://github.com/AnirudhKK/Burp-Suite-Report-Generator/releases).
 
-## [Unreleased]
+## [1.0.6] - 2026-10-31
+
+### Added
+- **PyPI package** `burp-report-generator`. Install it with `pip install burp-report-generator` (or `pipx`) and
+  run it with `burp-report` on Windows, macOS or Linux. Python 3.10+ is required.
+- Version tags publish the package to PyPI automatically, using Trusted Publishing, so no token is stored.
+- The wheel and source archive are also attached to each GitHub Release.
+- **Signed build provenance** for the exe, the wheel and the source archive. Check any download with
+  `gh attestation verify <file> --repo AnirudhKK/Burp-Suite-Report-Generator`.
+- CI runs the unit tests on Linux with Python 3.10 and 3.14.
+- CI installs the built package into a clean environment and generates reports with it.
+
+### Changed
+- The sample scan moved to `burp_report/samples/`, so it ships with the package and **Try the sample report**
+  works in every install.
+- The workflow is now named **Build and release**.
 
 ## [1.0.5] - 2026-10-30
 
@@ -59,7 +74,7 @@ All notable changes to this project are listed here. The format follows
 - CWE and OWASP Top 10 mapping.
 - A single-file Windows exe that needs no Python.
 
-[Unreleased]: https://github.com/AnirudhKK/Burp-Suite-Report-Generator/compare/v1.0.5...HEAD
+[1.0.6]: https://github.com/AnirudhKK/Burp-Suite-Report-Generator/releases/tag/v1.0.6
 [1.0.5]: https://github.com/AnirudhKK/Burp-Suite-Report-Generator/releases/tag/v1.0.5
 [1.0.4]: https://github.com/AnirudhKK/Burp-Suite-Report-Generator/releases/tag/v1.0.4
 [1.0.1] – [1.0.3]: https://github.com/AnirudhKK/Burp-Suite-Report-Generator/releases

@@ -9,7 +9,7 @@ body:
 
         ⚠️ **Never attach real client data:** no real Burp exports, reports, profiles or screenshots showing hosts,
         cookies or findings. If the problem needs an input file, make a minimal one with made-up values
-        (or start from `samples/sample_burp_export.xml`).
+        (or start from `burp_report/samples/sample_burp_export.xml`).
 
         **Security problems** go to [private vulnerability reporting](https://github.com/AnirudhKK/Burp-Suite-Report-Generator/security/advisories/new), not here.
 
@@ -29,8 +29,8 @@ body:
     id: version
     attributes:
       label: Version
-      description: Output of `--version` (e.g. `burp-report 1.0.5`).
-      placeholder: burp-report 1.0.5
+      description: Output of `--version` (e.g. `burp-report 1.0.6`).
+      placeholder: burp-report 1.0.6
     validations:
       required: true
 

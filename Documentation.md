@@ -18,7 +18,7 @@ The complete guide. For a quick start, see [README.md](README.md).
 12. [Templates and fonts](#12-templates-and-fonts)
 13. [Making your own template](#13-making-your-own-template)
 14. [Security notes](#14-security-notes)
-15. [Building the Windows exe](#15-building-the-windows-exe)
+15. [Building and releasing](#15-building-and-releasing)
 16. [Tests](#16-tests)
 17. [Troubleshooting](#17-troubleshooting)
 18. [Project layout](#18-project-layout)
@@ -48,6 +48,20 @@ Nothing is uploaded anywhere.
 
 Requires **Python 3.10 or newer**.
 
+**From PyPI (recommended).** This installs the `burp-report` command:
+
+```powershell
+pip install burp-report-generator          # or: pipx install burp-report-generator
+burp-report --version
+burp-report                                # opens the web UI
+```
+
+[pipx](https://pipx.pypa.io/) installs it in its own isolated environment, which keeps it apart from your other
+Python packages. To upgrade later, run `pip install --upgrade burp-report-generator` (or `pipx upgrade
+burp-report-generator`). `python -m burp_report` works too.
+
+**From source.** Use this to change the code or templates, or to run the tests:
+
 ```powershell
 git clone https://github.com/AnirudhKK/Burp-Suite-Report-Generator.git
 cd Burp-Suite-Report-Generator
@@ -57,7 +71,10 @@ pip install -r requirements.txt
 python generate_report.py --version
 ```
 
-`requirements.txt` installs:
+From a source checkout, `python generate_report.py` takes exactly the same options as `burp-report`. The
+examples in this guide use `python generate_report.py`; with a PyPI install, type `burp-report` instead.
+
+Both ways install:
 
 | Package | Used for |
 |---|---|
@@ -71,13 +88,15 @@ python generate_report.py --version
    `.sha256` file if you want to verify it.
 2. Optional: check the download. The two hashes must match.
    ```powershell
-   (Get-FileHash .\BurpReportGenerator-v1.0.5.exe -Algorithm SHA256).Hash
-   Get-Content .\BurpReportGenerator-v1.0.5.exe.sha256
+   (Get-FileHash .\BurpReportGenerator-v1.0.6.exe -Algorithm SHA256).Hash
+   Get-Content .\BurpReportGenerator-v1.0.6.exe.sha256
    ```
+   To also prove the exe was built by this project's GitHub Actions from its public source, see
+   [Verifying a download](#verifying-a-download-build-provenance).
 3. Double-click the exe to open the web UI, or run it from a terminal with the same options as
    `generate_report.py`:
    ```powershell
-   .\BurpReportGenerator-v1.0.5.exe scan.xml -y -f all -o reports\acme
+   .\BurpReportGenerator-v1.0.6.exe scan.xml -y -f all -o reports\acme
    ```
 
 Notes:
@@ -200,7 +219,8 @@ After generating, you can open the files, keep adjusting settings and generate a
 ## 6. Command-line reference
 
 ```text
-python generate_report.py [xml] [options]
+burp-report [xml] [options]                      # installed from PyPI
+python generate_report.py [xml] [options]        # from a source checkout
 BurpReportGenerator-v<version>.exe [xml] [options]
 ```
 
@@ -483,7 +503,7 @@ font's licence text sits next to it.
 ```powershell
 python generate_report.py --export-template corporate my_template
 # or, with the exe:
-.\BurpReportGenerator-v1.0.5.exe --export-template corporate my_template
+.\BurpReportGenerator-v1.0.6.exe --export-template corporate my_template
 ```
 
 This copies the template and the shared files into `my_template/`. It refuses to overwrite a folder that
@@ -593,40 +613,58 @@ written.
 - **Before sharing a report**, keep redaction on (the default) and check the appendix's redaction count. Add
   client-specific values, such as internal hostnames and account IDs, under **Extra values to redact**.
 
-## 15. Building the Windows exe
+## 15. Building and releasing
 
 ### Locally
 
 ```powershell
 pip install -r requirements-dev.txt
-pyinstaller packaging/BurpReportGenerator.spec --noconfirm --clean
-# result: dist/BurpReportGenerator-v<version>.exe
+pyinstaller packaging/BurpReportGenerator.spec --noconfirm --clean   # dist/BurpReportGenerator-v<version>.exe
+python -m build                                                      # dist/*.whl and dist/*.tar.gz (PyPI package)
+python -m twine check --strict dist/*.whl dist/*.tar.gz
 ```
 
-The exe's name and its Windows version details come from `__version__` in `burp_report/__init__.py`.
-`packaging/` holds the PyInstaller spec and the icon. `make_icon.py` redraws the icon; it needs Pillow.
+The exe's name, its Windows version details and the PyPI package version all come from `__version__` in
+`burp_report/__init__.py`.
+
+- **`packaging/`** holds the PyInstaller spec and the icon. `make_icon.py` redraws the icon; it needs Pillow.
+- **`pyproject.toml`** defines the PyPI package:
+  - the name `burp-report-generator` and the `burp-report` command;
+  - the dependencies, which must match `requirements.txt` (a test checks this);
+  - the data files: templates, fonts, the web UI and the sample scan.
 
 ### With GitHub Actions
 
-`.github/workflows/build-exe.yml` runs three jobs:
+`.github/workflows/build-exe.yml` (named **Build and release** in the Actions tab) runs these jobs:
 
 1. **test**: unit tests and web UI tests on a Windows runner.
-2. **build**:
+2. **test-python-versions**: the unit tests on Linux with Python 3.10 and 3.14, the oldest and newest versions
+   the package supports.
+3. **build** (the Windows exe):
    1. builds the exe;
    2. checks `--version` and `--list-templates`;
    3. exports the sample scan to HTML, PDF and Word;
    4. runs the web UI tests again, with the exe serving the app;
-   5. writes a SHA-256 checksum.
-3. **release**: for version tags only, publishes a GitHub Release with the exe, its checksum, and notes
-   covering SmartScreen and how to verify the download.
+   5. writes a SHA-256 checksum;
+   6. records signed build provenance.
+4. **package** (the PyPI package):
+   1. builds the wheel and source archive, and checks them with `twine check --strict`;
+   2. installs the wheel into a clean environment;
+   3. runs `burp-report` from outside the source folder: version, templates, and an HTML and Word export of the
+      bundled sample;
+   4. records signed build provenance.
+5. **pypi**: for version tags only, publishes the package to PyPI.
+6. **release**: for version tags only, publishes a GitHub Release. It holds the exe, its checksum, the wheel and
+   source archive, and notes covering SmartScreen, `pip install` and how to verify downloads.
 
 When each job runs:
 
-| Trigger | test | build | release |
-|---|---|---|---|
-| Push to `main`/`master` or a pull request (changes other than `.md` files) | ✔ | ✔ (exe kept 14 days under **Artifacts**) | |
-| Push of a `v*` tag | ✔ | ✔ (kept 90 days) | ✔ |
-| **Actions → Build Windows exe → Run workflow** | ✔ | ✔ | |
+| Trigger | tests | build + package | provenance | pypi + release |
+|---|---|---|---|---|
+| Pull request (changes other than `.md` files) | ✔ | ✔ | | |
+| Push to `main`/`master` (changes other than `.md` files) | ✔ | ✔ (kept 14 days under **Artifacts**) | ✔ | |
+| Push of a `v*` tag | ✔ | ✔ (kept 90 days) | ✔ | ✔ |
+| **Actions → Build and release → Run workflow** | ✔ | ✔ | ✔ | |
 
 Pushes that change only Markdown files, such as this documentation, don't start the workflow.
 
@@ -643,7 +681,59 @@ git push origin v1.1.0
 ```
 
 The tag must match `__version__`, or the build stops before anything is published. Tags can't be reused, so
-always bump the version.
+always bump the version. PyPI never accepts the same version twice, even after you delete it there.
+
+### Publishing to PyPI: one-time setup
+
+The workflow uses PyPI **Trusted Publishing**. No PyPI password or API token is stored in GitHub. Instead, PyPI
+trusts uploads that come from this repository's `build-exe.yml` workflow running in the `pypi` environment. Set
+it up once:
+
+1. **Create a PyPI account** at <https://pypi.org/account/register/> and turn on two-factor authentication.
+2. **Register the publisher.** On PyPI, open **Your account → Publishing**. Under **Add a new pending
+   publisher → GitHub**, enter:
+
+   | Field | Value |
+   |---|---|
+   | PyPI Project Name | `burp-report-generator` |
+   | Owner | `AnirudhKK` |
+   | Repository name | `Burp-Suite-Report-Generator` |
+   | Workflow name | `build-exe.yml` |
+   | Environment name | `pypi` |
+
+   "Pending" means the project is created on PyPI by the first successful upload.
+3. **Create the environment.** In GitHub, open **Settings → Environments → New environment**, name it `pypi`,
+   and save. Two optional protections:
+   - Under **Deployment branches and tags**, allow only tags matching `v*`.
+   - Add yourself as a **required reviewer**, so every PyPI upload waits for your approval.
+4. **Release** as described above. The **pypi** job uploads the package, and it appears at
+   <https://pypi.org/project/burp-report-generator/>.
+
+PyPI also stores signed attestations for each uploaded file, generated automatically by the publish step. You
+can see them on each file's page on PyPI.
+
+If the **pypi** job fails because the publisher isn't set up yet, the GitHub Release is still published. Once the
+setup is done, re-run the failed job from the workflow run page.
+
+### Verifying a download (build provenance)
+
+Every exe, wheel and source archive built on a push or tag has a signed **build provenance attestation**. This is
+a record, signed with Sigstore and stored by GitHub, of the exact repository, commit and workflow run that
+produced the file. It shows the file was built by this project's public workflow from its public source code, and
+not modified afterwards.
+
+To verify a file, install the [GitHub CLI](https://cli.github.com/) and run:
+
+```powershell
+gh attestation verify BurpReportGenerator-v1.0.6.exe --repo AnirudhKK/Burp-Suite-Report-Generator
+gh attestation verify burp_report_generator-1.0.6-py3-none-any.whl --repo AnirudhKK/Burp-Suite-Report-Generator
+```
+
+A successful check prints the workflow and commit that built the file. A file that was changed, or built
+anywhere else, fails. All attestations are listed under the repository's **Actions → Attestations**.
+
+Attestations need a public repository on GitHub's Free, Pro or Team plans; private repositories need GitHub
+Enterprise Cloud.
 
 ### Dependency updates
 
@@ -683,12 +773,12 @@ python -m pytest                      # everything (about 2 minutes)
 python -m pytest -m "not e2e"         # unit tests only (seconds)
 python -m pytest tests/e2e            # web UI tests only
 python -m pytest -k redact -v         # tests whose name matches "redact"
-$env:BURP_REPORT_EXE = "dist\BurpReportGenerator-v1.0.5.exe"; python -m pytest tests/e2e   # test a built exe
+$env:BURP_REPORT_EXE = "dist\BurpReportGenerator-v1.0.6.exe"; python -m pytest tests/e2e   # test a built exe
 ```
 
 | Suite | Location | Covers |
 |---|---|---|
-| Unit | `tests/test_*.py` | Parser (aliases, binary bodies, XXE), sanitizer, redaction, payload highlighting, OWASP mapping, profiles, HTML and Word rendering for every template, command line |
+| Unit | `tests/test_*.py` | Parser (aliases, binary bodies, XXE), sanitizer, redaction, payload highlighting, OWASP mapping, profiles, HTML and Word rendering for every template, command line, package metadata |
 | Web UI | `tests/e2e/` | The studio in Microsoft Edge via Playwright: previews and links, every settings panel, exports in all formats, profiles, uploads and drag-and-drop, malformed input, API security checks, phone layout, a 1,500-issue performance check |
 
 - **Browser:** the web UI tests use the installed Microsoft Edge, so no browser download is needed. Set
@@ -710,6 +800,7 @@ $env:BURP_REPORT_EXE = "dist\BurpReportGenerator-v1.0.5.exe"; python -m pytest t
 | No evidence in the report | Tick *Include requests/responses* when exporting from Burp, and check **HTTP evidence** settings. |
 | SmartScreen "Windows protected your PC" | The exe is unsigned: **More info → Run anyway**. |
 | Exe slow to start | Normal; it unpacks to a temporary folder first (a few seconds). |
+| `burp-report` not found after `pip install` | pip's scripts folder isn't on your `PATH`. Use `python -m burp_report` instead, or install with `pipx`, which sets up `PATH` for you. |
 | Web UI didn't open a browser | Open the URL printed in the console, or use `--port 8080` and go to `http://127.0.0.1:8080`. |
 | Word asks to "update fields" on opening | Click **Yes** to fill in the contents page numbers. |
 | Japanese/Cyrillic text in a different font | The bundled fonts are Latin-only; other scripts use system fonts. |
@@ -738,8 +829,8 @@ burp_report/
   templates/
     _common/                base.html.j2, macros.html.j2, base.css (shared)
     corporate/ modern/ minimal/   report.html.j2 + template.json each
-samples/
-  sample_burp_export.xml    example export used by "Try the sample report" and the tests
+  samples/
+    sample_burp_export.xml  example export used by "Try the sample report" and the tests
 tests/
   test_*.py                 unit tests
   fixtures.py               generated edge-case inputs
@@ -748,11 +839,12 @@ packaging/
   BurpReportGenerator.spec  PyInstaller build definition
   icon.ico, make_icon.py    app icon
 .github/
-  workflows/build-exe.yml   test → build → release workflow
+  workflows/build-exe.yml   test → build exe + package → PyPI + GitHub Release
   workflows/codeql.yml      CodeQL code scanning
   ISSUE_TEMPLATE/           bug report and feature request forms
   dependabot.yml            weekly dependency update PRs
-requirements.txt            runtime dependencies
+pyproject.toml              PyPI package definition (burp-report-generator, `burp-report` command)
+requirements.txt            runtime dependencies (kept in step with pyproject.toml)
 requirements-dev.txt        test and build dependencies (pinned)
 pytest.ini                  test settings
 README.md                   quick start

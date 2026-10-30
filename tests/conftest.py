@@ -8,7 +8,7 @@ from burp_report.parser import parse_burp_xml
 from . import fixtures
 
 ROOT = Path(__file__).resolve().parent.parent
-SAMPLE = ROOT / "samples" / "sample_burp_export.xml"
+SAMPLE = ROOT / "burp_report" / "samples" / "sample_burp_export.xml"
 SESSION_COOKIE = "8f2a1c9e"   # the sample's session cookie value; must never survive redaction
 
 

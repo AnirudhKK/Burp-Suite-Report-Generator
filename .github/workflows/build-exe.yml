@@ -1,13 +1,16 @@
-# Tests the project, builds the single-file Windows executable with PyInstaller and releases it.
+# Tests the project, builds the Windows exe and the Python package, and releases them.
 #
-# - Every push and pull request: run the tests, then build and smoke-test the .exe and attach it to the run.
-# - Pushing a tag such as v1.0.0: also publishes a GitHub Release with the .exe and its SHA-256 checksum.
-#   The tag must match __version__ in burp_report/__init__.py.
+# - Every push and pull request: run the tests; build and test the .exe and the Python package (wheel + sdist)
+#   and attach them to the run.
+# - Pushes (not pull requests) also record signed build provenance for the exe and the package, so anyone can
+#   verify a download came from this workflow: gh attestation verify <file> --repo <owner>/<repo>
+# - Pushing a tag such as v1.0.0: also publishes a GitHub Release (exe, checksum, wheel, sdist) and publishes the
+#   package to PyPI. The tag must match __version__ in burp_report/__init__.py.
 # - Can be started by hand from the Actions tab (workflow_dispatch).
 # The exe is not code-signed; the release notes explain the SmartScreen prompt.
 # Actions are pinned to full commit SHAs (version in the trailing comment), so a moved or hijacked tag can't
 # change what runs here. Dependabot updates the SHA and the comment together.
-name: Build Windows exe
+name: Build and release
 
 on:
   push:
@@ -57,10 +60,40 @@ jobs:
           path: test-results/
           if-no-files-found: ignore
 
+  # The PyPI package supports Python 3.10+ on any OS: run the unit tests on Linux with the oldest and newest.
+  test-python-versions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.10", "3.14"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: requirements*.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Unit tests
+        run: python -m pytest -m "not e2e" -v
+
   build:
-    needs: test
+    needs: [test, test-python-versions]
     runs-on: windows-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
+      id-token: write            # sign the provenance attestation (Sigstore)
+      attestations: write        # store it with the repository
+      artifact-metadata: write
     defaults:
       run:
         shell: pwsh
@@ -101,7 +134,7 @@ jobs:
           if ($LASTEXITCODE) { throw "--version failed" }
           & $exe --list-templates
           if ($LASTEXITCODE) { throw "--list-templates failed" }
-          & $exe samples/sample_burp_export.xml -y -f all -o smoke/report
+          & $exe burp_report/samples/sample_burp_export.xml -y -f all -o smoke/report
           if ($LASTEXITCODE) { throw "report export failed" }
           foreach ($ext in "html", "pdf", "docx") {
             $f = "smoke/report.$ext"
@@ -123,6 +156,12 @@ jobs:
             "$h  $($_.Name)"
           }
 
+      # Signed SLSA build provenance: proves this exe was built by this workflow from this commit.
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        if: github.event_name != 'pull_request'
+        with:
+          subject-path: dist/*.exe
+
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: BurpReportGenerator-v${{ steps.version.outputs.version }}
@@ -139,9 +178,87 @@ jobs:
           path: test-results/
           if-no-files-found: ignore
 
+  package:
+    needs: [test, test-python-versions]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements*.txt
+
+      - name: Install build tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Build wheel and sdist
+        run: |
+          python -m build
+          python -m twine check --strict dist/*
+          ls -l dist
+
+      # Install the wheel into a clean environment and run it from outside the source tree, so a missing
+      # template, font or the sample would fail here rather than for users.
+      - name: Test the installed package
+        run: |
+          version=$(python -c "import burp_report; print(burp_report.__version__)")
+          if [ "${{ github.ref_type }}" = "tag" ] && [ "${{ github.ref_name }}" != "v$version" ]; then
+            echo "::error::Tag ${{ github.ref_name }} does not match __version__ $version"; exit 1
+          fi
+          python -m venv /tmp/venv
+          /tmp/venv/bin/pip install --quiet dist/*.whl
+          cd "$(mktemp -d)"
+          test "$(/tmp/venv/bin/burp-report --version)" = "burp-report $version"
+          /tmp/venv/bin/burp-report --list-templates
+          sample=$(/tmp/venv/bin/python -c "from burp_report.web import SAMPLE_XML as s; assert s.is_file(); print(s)")
+          /tmp/venv/bin/burp-report "$sample" -y -f html,docx -o out/report
+          test -s out/report.html && test -s out/report.docx
+          ls -l out
+
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        if: github.event_name != 'pull_request'
+        with:
+          subject-path: dist/*
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: python-package
+          path: dist/
+          if-no-files-found: error
+          retention-days: ${{ github.ref_type == 'tag' && 90 || 14 }}
+
+  # Publishes to https://pypi.org/p/burp-report-generator with PyPI Trusted Publishing: no API token is stored;
+  # PyPI trusts this workflow + the "pypi" environment (set up once on pypi.org, see Documentation.md).
+  pypi:
+    if: github.ref_type == 'tag'
+    needs: [build, package]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/burp-report-generator
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: python-package
+          path: dist
+
+      - uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
+
   release:
     if: github.ref_type == 'tag'
-    needs: build
+    needs: [build, package]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -151,17 +268,30 @@ jobs:
           name: BurpReportGenerator-v${{ needs.build.outputs.version }}
           path: dist
 
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: python-package
+          path: dist
+
       - name: Write release notes
         env:
           EXE: BurpReportGenerator-v${{ needs.build.outputs.version }}.exe
+          VERSION: ${{ needs.build.outputs.version }}
         run: |
           hash=$(cut -d' ' -f1 "dist/$EXE.sha256")
           cat > notes.md <<EOF
           ## Download
 
-          **[$EXE](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/$EXE)**: a single
-          file, no installation or Python needed. Double-click it to open the report studio in your browser.
-          PDF export uses the Microsoft Edge or Google Chrome already on your PC.
+          **Windows: [$EXE](https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/$EXE)**,
+          a single file with no installation or Python needed. Double-click it to open the report studio in your
+          browser. PDF export uses the Microsoft Edge or Google Chrome already on your PC.
+
+          **Any OS with Python 3.10+:**
+
+          \`\`\`
+          pip install burp-report-generator==$VERSION
+          burp-report
+          \`\`\`
 
           ### "Windows protected your PC"
 
@@ -170,14 +300,19 @@ jobs:
 
           ### Check the download
 
-          SHA-256: \`$hash\`
+          SHA-256 of the exe: \`$hash\`
 
           \`\`\`powershell
           (Get-FileHash .\\$EXE -Algorithm SHA256).Hash
           \`\`\`
 
-          The result should match the hash above (also in \`$EXE.sha256\`). It was built and tested by
-          [this workflow run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}).
+          Every file in this release has signed build provenance. To prove a file was built by
+          [this workflow run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) from
+          this repository's source, use the [GitHub CLI](https://cli.github.com/):
+
+          \`\`\`
+          gh attestation verify $EXE --repo ${{ github.repository }}
+          \`\`\`
           EOF
           sed -i 's/^          //' notes.md
           cat notes.md
@@ -189,4 +324,6 @@ jobs:
           files: |
             dist/*.exe
             dist/*.sha256
+            dist/*.whl
+            dist/*.tar.gz
           generate_release_notes: true

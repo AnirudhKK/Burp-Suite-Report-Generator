@@ -1,0 +1,195 @@
+<?xml version="1.0"?>
+<!DOCTYPE issues [
+<!ELEMENT issues (issue*)>
+<!ATTLIST issues burpVersion CDATA "">
+<!ATTLIST issues exportTime CDATA "">
+]>
+<issues burpVersion="2025.10.2" exportTime="Fri Oct 17 09:14:22 IST 2026">
+  <issue>
+    <serialNumber>1001</serialNumber>
+    <type>2097920</type>
+    <name>Cross-site scripting (reflected)</name>
+    <host ip="203.0.113.10">https://shop.example.com</host>
+    <path><![CDATA[/search?q=test]]></path>
+    <location><![CDATA[/search?q=test]]></location>
+    <severity>High</severity>
+    <confidence>Certain</confidence>
+    <issueBackground><![CDATA[<p>Reflected cross-site scripting vulnerabilities arise when data is copied from a request and echoed into the application's immediate response in an unsafe way. An attacker can use the vulnerability to construct a request that, if issued by another application user, will cause JavaScript code supplied by the attacker to execute within the user's browser in the context of that user's session with the application.</p><p>The attacker-supplied code can perform a wide variety of actions, such as stealing the victim's session token or login credentials.</p>]]></issueBackground>
+    <remediationBackground><![CDATA[<p>In most situations where user-controllable data is copied into application responses, cross-site scripting attacks can be prevented using two layers of defenses:</p><ul><li>Input should be validated as strictly as possible on arrival.</li><li>User input should be HTML-encoded at any point where it is copied into application responses.</li></ul>]]></remediationBackground>
+    <references><![CDATA[<ul><li><a href="https://portswigger.net/web-security/cross-site-scripting">Cross-site scripting</a></li><li><a href="javascript:alert(1)">Bad link</a></li></ul>]]></references>
+    <vulnerabilityClassifications><![CDATA[<ul><li><a href="https://cwe.mitre.org/data/definitions/79.html">CWE-79: Improper Neutralization of Input During Web Page Generation</a></li><li><a href="https://cwe.mitre.org/data/definitions/116.html">CWE-116: Improper Encoding or Escaping of Output</a></li></ul>]]></vulnerabilityClassifications>
+    <issueDetail><![CDATA[The value of the <b>q</b> request parameter is copied into the HTML document as plain text between tags. The payload <b>abc&lt;script&gt;alert(1)&lt;/script&gt;xyz</b> was submitted in the q parameter. <script>alert("pwned-by-report")</script><img src=x onerror=alert(2)>]]></issueDetail>
+    
+    <requestresponse><request method="GET" base64="true"><![CDATA[R0VUIC9zZWFyY2g/cT1hYmMlM2NzY3JpcHQlM2VhbGVydCgxKSUzYyUyZnNjcmlwdCUzZXh5eiBIVFRQLzEuMQ0KSG9zdDogc2hvcC5leGFtcGxlLmNvbQ0KVXNlci1BZ2VudDogTW96aWxsYS81LjANCkFjY2VwdDogKi8qDQpDb29raWU6IHNlc3Npb249OGYyYTFjOWUNCg0K]]></request><response base64="true"><![CDATA[SFRUUC8xLjEgMjAwIE9LDQpDb250ZW50LVR5cGU6IHRleHQvaHRtbDsgY2hhcnNldD11dGYtOA0KU2VydmVyOiBuZ2lueC8xLjE4LjANCkNvbnRlbnQtTGVuZ3RoOiA2OQ0KDQo8aHRtbD48Ym9keT5SZXN1bHRzIGZvciBhYmM8c2NyaXB0PmFsZXJ0KDEpPC9zY3JpcHQ+eHl6PC9ib2R5PjwvaHRtbD4=]]></response><responseRedirected>false</responseRedirected></requestresponse>
+  </issue>
+  <issue>
+    <serialNumber>1002</serialNumber>
+    <type>2097920</type>
+    <name>Cross-site scripting (reflected)</name>
+    <host ip="203.0.113.10">https://shop.example.com</host>
+    <path><![CDATA[/product?id=5&ref=home]]></path>
+    <location><![CDATA[/product?id=5&ref=home]]></location>
+    <severity>High</severity>
+    <confidence>Firm</confidence>
+    <issueBackground><![CDATA[<p>Reflected cross-site scripting vulnerabilities arise when data is copied from a request and echoed into the application's immediate response in an unsafe way. An attacker can use the vulnerability to construct a request that, if issued by another application user, will cause JavaScript code supplied by the attacker to execute within the user's browser in the context of that user's session with the application.</p><p>The attacker-supplied code can perform a wide variety of actions, such as stealing the victim's session token or login credentials.</p>]]></issueBackground>
+    <remediationBackground><![CDATA[<p>In most situations where user-controllable data is copied into application responses, cross-site scripting attacks can be prevented using two layers of defenses:</p><ul><li>Input should be validated as strictly as possible on arrival.</li><li>User input should be HTML-encoded at any point where it is copied into application responses.</li></ul>]]></remediationBackground>
+    <references><![CDATA[<ul><li><a href="https://portswigger.net/web-security/cross-site-scripting">Cross-site scripting</a></li><li><a href="javascript:alert(1)">Bad link</a></li></ul>]]></references>
+    <vulnerabilityClassifications><![CDATA[<ul><li><a href="https://cwe.mitre.org/data/definitions/79.html">CWE-79: Improper Neutralization of Input During Web Page Generation</a></li><li><a href="https://cwe.mitre.org/data/definitions/116.html">CWE-116: Improper Encoding or Escaping of Output</a></li></ul>]]></vulnerabilityClassifications>
+    <issueDetail><![CDATA[The value of the <b>ref</b> request parameter is copied into an HTML attribute.]]></issueDetail>
+    
+    <requestresponse><request method="GET" base64="true"><![CDATA[R0VUIC9wcm9kdWN0P2lkPTUmcmVmPWhvbWUlMjJvbm1vdXNlb3ZlciUzZGFsZXJ0KDEpJTJmJTJmIEhUVFAvMS4xDQpIb3N0OiBzaG9wLmV4YW1wbGUuY29tDQpVc2VyLUFnZW50OiBNb3ppbGxhLzUuMA0KQWNjZXB0OiAqLyoNCkNvb2tpZTogc2Vzc2lvbj04ZjJhMWM5ZQ0KDQo=]]></request><response base64="true"><![CDATA[SFRUUC8xLjEgMjAwIE9LDQpDb250ZW50LVR5cGU6IHRleHQvaHRtbDsgY2hhcnNldD11dGYtOA0KU2VydmVyOiBuZ2lueC8xLjE4LjANCkNvbnRlbnQtTGVuZ3RoOiA1Ng0KDQo8YSBocmVmPSIvYmFjaz9yZWY9aG9tZSJvbm1vdXNlb3Zlcj1hbGVydCgxKS8vIj5CYWNrPC9hPg==]]></response><responseRedirected>false</responseRedirected></requestresponse>
+  </issue>
+  <issue>
+    <serialNumber>1003</serialNumber>
+    <type>1049088</type>
+    <name>SQL injection</name>
+    <host ip="203.0.113.24">https://api.example.com</host>
+    <path><![CDATA[/v1/orders]]></path>
+    <location><![CDATA[/v1/orders]]></location>
+    <severity>High</severity>
+    <confidence>Firm</confidence>
+    <issueBackground><![CDATA[<p>SQL injection vulnerabilities arise when user-controllable data is incorporated into database SQL queries in an unsafe manner. An attacker can supply crafted input to break out of the data context in which their input appears and interfere with the structure of the surrounding query.</p>]]></issueBackground>
+    <remediationBackground><![CDATA[<p>The most effective way to prevent SQL injection attacks is to use parameterized queries (also known as prepared statements) for all database access.</p>]]></remediationBackground>
+    <references><![CDATA[<ul><li><a href="https://portswigger.net/web-security/sql-injection">SQL injection</a></li></ul>]]></references>
+    <vulnerabilityClassifications><![CDATA[<ul><li><a href="https://cwe.mitre.org/data/definitions/89.html">CWE-89: SQL Injection</a></li></ul>]]></vulnerabilityClassifications>
+    <issueDetail><![CDATA[The <b>customer</b> JSON parameter appears to be vulnerable to SQL injection attacks. The payload <b>'</b> was submitted and a database error message was returned.]]></issueDetail>
+    
+    <requestresponse><request method="POST" base64="true"><![CDATA[UE9TVCAvdjEvb3JkZXJzIEhUVFAvMS4xDQpIb3N0OiBhcGkuZXhhbXBsZS5jb20NClVzZXItQWdlbnQ6IE1vemlsbGEvNS4wDQpBY2NlcHQ6ICovKg0KQ29va2llOiBzZXNzaW9uPThmMmExYzllDQpDb250ZW50LVR5cGU6IGFwcGxpY2F0aW9uL2pzb24NCg0KeyJjdXN0b21lciI6IjQyJyJ9DQo=]]></request><response base64="true"><![CDATA[SFRUUC8xLjEgNTAwIEludGVybmFsIFNlcnZlciBFcnJvcg0KQ29udGVudC1UeXBlOiB0ZXh0L2h0bWw7IGNoYXJzZXQ9dXRmLTgNClNlcnZlcjogbmdpbngvMS4xOC4wDQpDb250ZW50LUxlbmd0aDogMTEyDQoNCnsiZXJyb3IiOiJZb3UgaGF2ZSBhbiBlcnJvciBpbiB5b3VyIFNRTCBzeW50YXg7IGNoZWNrIHRoZSBtYW51YWwgdGhhdCBjb3JyZXNwb25kcyB0byB5b3VyIE15U1FMIHNlcnZlciB2ZXJzaW9uIn0=]]></response><responseRedirected>false</responseRedirected></requestresponse>
+  </issue>
+  <issue>
+    <serialNumber>1004</serialNumber>
+    <type>5245344</type>
+    <name>Cross-origin resource sharing: arbitrary origin trusted</name>
+    <host ip="203.0.113.24">https://api.example.com</host>
+    <path><![CDATA[/v1/profile]]></path>
+    <location><![CDATA[/v1/profile]]></location>
+    <severity>Medium</severity>
+    <confidence>Certain</confidence>
+    <issueBackground><![CDATA[<p>An HTML5 cross-origin resource sharing (CORS) policy controls whether and how content running on other domains can perform two-way interaction with the domain that publishes the policy.</p>]]></issueBackground>
+    <remediationBackground><![CDATA[<p>Rather than using a wildcard or programmatically verifying supplied origins, use a whitelist of trusted domains.</p>]]></remediationBackground>
+    <references><![CDATA[<ul><li><a href="https://portswigger.net/web-security/cors">Web Security Academy: CORS</a></li></ul>]]></references>
+    <vulnerabilityClassifications><![CDATA[<ul><li><a href="https://cwe.mitre.org/data/definitions/942.html">CWE-942: Overly Permissive Cross-domain Whitelist</a></li></ul>]]></vulnerabilityClassifications>
+    <issueDetail><![CDATA[The application implements an HTML5 cross-origin resource sharing (CORS) policy for this request that allows access from any domain. The application allowed access from the requested origin <b>https://zfxwqeqbabtv.com</b>]]></issueDetail>
+    
+    <requestresponse><request method="GET" base64="true"><![CDATA[R0VUIC92MS9wcm9maWxlIEhUVFAvMS4xDQpIb3N0OiBhcGkuZXhhbXBsZS5jb20NClVzZXItQWdlbnQ6IE1vemlsbGEvNS4wDQpBY2NlcHQ6ICovKg0KQ29va2llOiBzZXNzaW9uPThmMmExYzllDQpPcmlnaW46IGh0dHBzOi8vemZ4d3FlcWJhYnR2LmNvbQ0KDQo=]]></request><response base64="true"><![CDATA[SFRUUC8xLjEgMjAwIE9LDQpDb250ZW50LVR5cGU6IHRleHQvaHRtbDsgY2hhcnNldD11dGYtOA0KU2VydmVyOiBuZ2lueC8xLjE4LjANCkNvbnRlbnQtTGVuZ3RoOiAzNw0KDQp7ImlkIjo0MiwiZW1haWwiOiJhbGljZUBleGFtcGxlLmNvbSJ9]]></response><responseRedirected>false</responseRedirected></requestresponse>
+  </issue>
+  <issue>
+    <serialNumber>201</serialNumber>
+    <type>16777472</type>
+    <name>Strict transport security not enforced</name>
+    <host ip="203.0.113.10">https://shop.example.com</host>
+    <path><![CDATA[/]]></path>
+    <location><![CDATA[/]]></location>
+    <severity>Low</severity>
+    <confidence>Certain</confidence>
+    <issueBackground><![CDATA[<p>The application fails to prevent users from connecting to it over unencrypted connections.</p>]]></issueBackground>
+    <remediationBackground><![CDATA[<p>The application should instruct web browsers to only access the application using HTTPS. To do this, enable HTTP Strict Transport Security (HSTS) by adding a response header with the name 'Strict-Transport-Security' and the value 'max-age=expireTime'.</p>]]></remediationBackground>
+    <references><![CDATA[<ul><li><a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Strict-Transport-Security">HTTP Strict Transport Security</a></li></ul>]]></references>
+    <vulnerabilityClassifications><![CDATA[<ul><li><a href="https://cwe.mitre.org/data/definitions/523.html">CWE-523: Unprotected Transport of Credentials</a></li></ul>]]></vulnerabilityClassifications>
+    
+    
+    <requestresponse><request method="GET" base64="true"><![CDATA[R0VUIC8gSFRUUC8xLjENCkhvc3Q6IHNob3AuZXhhbXBsZS5jb20NClVzZXItQWdlbnQ6IE1vemlsbGEvNS4wDQpBY2NlcHQ6ICovKg0KQ29va2llOiBzZXNzaW9uPThmMmExYzllDQoNCg==]]></request><response base64="true"><![CDATA[SFRUUC8xLjEgMjAwIE9LDQpDb250ZW50LVR5cGU6IHRleHQvaHRtbDsgY2hhcnNldD11dGYtOA0KU2VydmVyOiBuZ2lueC8xLjE4LjANCkNvbnRlbnQtTGVuZ3RoOiAxNQ0KDQo8aHRtbD5vazwvaHRtbD4=]]></response><responseRedirected>false</responseRedirected></requestresponse>
+  </issue>
+  <issue>
+    <serialNumber>202</serialNumber>
+    <type>16777472</type>
+    <name>Strict transport security not enforced</name>
+    <host ip="203.0.113.10">https://shop.example.com</host>
+    <path><![CDATA[/login]]></path>
+    <location><![CDATA[/login]]></location>
+    <severity>Low</severity>
+    <confidence>Certain</confidence>
+    <issueBackground><![CDATA[<p>The application fails to prevent users from connecting to it over unencrypted connections.</p>]]></issueBackground>
+    <remediationBackground><![CDATA[<p>The application should instruct web browsers to only access the application using HTTPS. To do this, enable HTTP Strict Transport Security (HSTS) by adding a response header with the name 'Strict-Transport-Security' and the value 'max-age=expireTime'.</p>]]></remediationBackground>
+    <references><![CDATA[<ul><li><a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Strict-Transport-Security">HTTP Strict Transport Security</a></li></ul>]]></references>
+    <vulnerabilityClassifications><![CDATA[<ul><li><a href="https://cwe.mitre.org/data/definitions/523.html">CWE-523: Unprotected Transport of Credentials</a></li></ul>]]></vulnerabilityClassifications>
+    
+    
+    <requestresponse><request method="GET" base64="true"><![CDATA[R0VUIC9sb2dpbiBIVFRQLzEuMQ0KSG9zdDogc2hvcC5leGFtcGxlLmNvbQ0KVXNlci1BZ2VudDogTW96aWxsYS81LjANCkFjY2VwdDogKi8qDQpDb29raWU6IHNlc3Npb249OGYyYTFjOWUNCg0K]]></request><response base64="true"><![CDATA[SFRUUC8xLjEgMjAwIE9LDQpDb250ZW50LVR5cGU6IHRleHQvaHRtbDsgY2hhcnNldD11dGYtOA0KU2VydmVyOiBuZ2lueC8xLjE4LjANCkNvbnRlbnQtTGVuZ3RoOiAxNQ0KDQo8aHRtbD5vazwvaHRtbD4=]]></response><responseRedirected>false</responseRedirected></requestresponse>
+  </issue>
+  <issue>
+    <serialNumber>203</serialNumber>
+    <type>16777472</type>
+    <name>Strict transport security not enforced</name>
+    <host ip="203.0.113.24">https://api.example.com</host>
+    <path><![CDATA[/]]></path>
+    <location><![CDATA[/]]></location>
+    <severity>Low</severity>
+    <confidence>Certain</confidence>
+    <issueBackground><![CDATA[<p>The application fails to prevent users from connecting to it over unencrypted connections.</p>]]></issueBackground>
+    <remediationBackground><![CDATA[<p>The application should instruct web browsers to only access the application using HTTPS. To do this, enable HTTP Strict Transport Security (HSTS) by adding a response header with the name 'Strict-Transport-Security' and the value 'max-age=expireTime'.</p>]]></remediationBackground>
+    <references><![CDATA[<ul><li><a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Strict-Transport-Security">HTTP Strict Transport Security</a></li></ul>]]></references>
+    <vulnerabilityClassifications><![CDATA[<ul><li><a href="https://cwe.mitre.org/data/definitions/523.html">CWE-523: Unprotected Transport of Credentials</a></li></ul>]]></vulnerabilityClassifications>
+    
+    
+    <requestresponse><request method="GET" base64="true"><![CDATA[R0VUIC8gSFRUUC8xLjENCkhvc3Q6IGFwaS5leGFtcGxlLmNvbQ0KVXNlci1BZ2VudDogTW96aWxsYS81LjANCkFjY2VwdDogKi8qDQpDb29raWU6IHNlc3Npb249OGYyYTFjOWUNCg0K]]></request><response base64="true"><![CDATA[SFRUUC8xLjEgMjAwIE9LDQpDb250ZW50LVR5cGU6IHRleHQvaHRtbDsgY2hhcnNldD11dGYtOA0KU2VydmVyOiBuZ2lueC8xLjE4LjANCkNvbnRlbnQtTGVuZ3RoOiAxNQ0KDQo8aHRtbD5vazwvaHRtbD4=]]></response><responseRedirected>false</responseRedirected></requestresponse>
+  </issue>
+  <issue>
+    <serialNumber>301</serialNumber>
+    <type>5244416</type>
+    <name>Cookie without HttpOnly flag set</name>
+    <host ip="203.0.113.10">https://shop.example.com</host>
+    <path><![CDATA[/login]]></path>
+    <location><![CDATA[/login]]></location>
+    <severity>Low</severity>
+    <confidence>Firm</confidence>
+    <issueBackground><![CDATA[<p>If the HttpOnly attribute is set on a cookie, then the cookie's value cannot be read or set by client-side JavaScript.</p>]]></issueBackground>
+    <remediationBackground><![CDATA[<p>There is usually no good reason not to set the HttpOnly flag on all cookies.</p>]]></remediationBackground>
+    
+    
+    <issueDetail><![CDATA[The following cookie was issued by the application and does not have the HttpOnly flag set:]]></issueDetail>
+    <issueDetailItems><issueDetailItem><![CDATA[session]]></issueDetailItem></issueDetailItems>
+    
+  </issue>
+  <issue>
+    <serialNumber>401</serialNumber>
+    <type>6291968</type>
+    <name>Email addresses disclosed</name>
+    <host ip="203.0.113.10">https://shop.example.com</host>
+    <path><![CDATA[/contact]]></path>
+    <location><![CDATA[/contact]]></location>
+    <severity>Information</severity>
+    <confidence>Certain</confidence>
+    <issueBackground><![CDATA[<p>The presence of email addresses within application responses does not necessarily constitute a security vulnerability.</p>]]></issueBackground>
+    <remediationBackground><![CDATA[<p>Consider removing any email addresses that are unnecessary.</p>]]></remediationBackground>
+    
+    
+    <issueDetail><![CDATA[The following email addresses were disclosed in the response:<ul><li>support@example.com</li><li>admin@example.com</li></ul>]]></issueDetail>
+    
+    
+  </issue>
+  <issue>
+    <serialNumber>402</serialNumber>
+    <type>8389632</type>
+    <name>Frameable response (potential Clickjacking)</name>
+    <host ip="203.0.113.10">https://shop.example.com</host>
+    <path><![CDATA[/account]]></path>
+    <location><![CDATA[/account]]></location>
+    <severity>Information</severity>
+    <confidence>Firm</confidence>
+    <issueBackground><![CDATA[<p>If a page fails to set an appropriate X-Frame-Options or Content-Security-Policy HTTP header, it might be possible for a page controlled by an attacker to load it within an iframe.</p>]]></issueBackground>
+    <remediationBackground><![CDATA[<p>Set Content-Security-Policy: frame-ancestors 'self' or X-Frame-Options: DENY.</p>]]></remediationBackground>
+    
+    
+    
+    
+    
+  </issue>
+  <issue>
+    <serialNumber>403</serialNumber>
+    <type>5245312</type>
+    <name>Content type incorrectly stated</name>
+    <host ip="203.0.113.24">https://api.example.com</host>
+    <path><![CDATA[/v1/health]]></path>
+    <location><![CDATA[/v1/health]]></location>
+    <severity>Information</severity>
+    <confidence>Tentative</confidence>
+    <issueBackground><![CDATA[<p>If a response specifies an incorrect content type, then browsers may process the response in unexpected ways.</p>]]></issueBackground>
+    
+    
+    
+    
+    
+    
+  </issue>
+</issues>

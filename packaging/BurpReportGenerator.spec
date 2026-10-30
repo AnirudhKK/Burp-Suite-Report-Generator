@@ -37,7 +37,7 @@ datas = [
     (str(PKG / "templates"), "burp_report/templates"),
     (str(PKG / "fonts"), "burp_report/fonts"),
     (str(PKG / "webui"), "burp_report/webui"),
-    (str(ROOT / "samples" / "sample_burp_export.xml"), "samples"),
+    (str(PKG / "samples"), "burp_report/samples"),
 ]
 # python-docx ships its blank document template as package data.
 import docx

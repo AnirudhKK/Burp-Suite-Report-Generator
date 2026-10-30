@@ -1,9 +1,11 @@
 # Burp Suite Report Generator
 
-[![Build Windows exe](https://github.com/AnirudhKK/Burp-Suite-Report-Generator/actions/workflows/build-exe.yml/badge.svg)](https://github.com/AnirudhKK/Burp-Suite-Report-Generator/actions/workflows/build-exe.yml)
+[![Build and release](https://github.com/AnirudhKK/Burp-Suite-Report-Generator/actions/workflows/build-exe.yml/badge.svg)](https://github.com/AnirudhKK/Burp-Suite-Report-Generator/actions/workflows/build-exe.yml)
 [![Latest release](https://img.shields.io/github/v/release/AnirudhKK/Burp-Suite-Report-Generator)](https://github.com/AnirudhKK/Burp-Suite-Report-Generator/releases/latest)
+[![PyPI](https://img.shields.io/pypi/v/burp-report-generator)](https://pypi.org/project/burp-report-generator/)
+[![Python](https://img.shields.io/pypi/pyversions/burp-report-generator)](https://pypi.org/project/burp-report-generator/)
 [![CodeQL](https://github.com/AnirudhKK/Burp-Suite-Report-Generator/actions/workflows/codeql.yml/badge.svg)](https://github.com/AnirudhKK/Burp-Suite-Report-Generator/actions/workflows/codeql.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/AnirudhKK/Burp-Suite-Report-Generator/blob/main/LICENSE)
 
 Turn a **Burp Suite Professional XML export** into a polished, client-ready security report in **HTML**,
 **PDF** or **Word**. You design it in a local web app with a live preview, or generate it from the command line.
@@ -14,7 +16,7 @@ Turn a **Burp Suite Professional XML export** into a polished, client-ready secu
 - **OWASP Top 10:2025 and CWE** mapping for every finding (the 2021 edition is available as an option).
 - **Fully offline:** fonts and mappings are bundled; nothing leaves your machine.
 
-Full guide: **[Documentation.md](Documentation.md)** · What's new: **[CHANGELOG.md](CHANGELOG.md)**
+Full guide: **[Documentation.md](https://github.com/AnirudhKK/Burp-Suite-Report-Generator/blob/main/Documentation.md)** · What's new: **[CHANGELOG.md](https://github.com/AnirudhKK/Burp-Suite-Report-Generator/blob/main/CHANGELOG.md)**
 
 ---
 
@@ -22,7 +24,14 @@ Full guide: **[Documentation.md](Documentation.md)** · What's new: **[CHANGELOG
 
 ### Option 1: Python (Windows, macOS, Linux)
 
-Requires Python 3.10+.
+Requires Python 3.10+. Install from [PyPI](https://pypi.org/project/burp-report-generator/):
+
+```powershell
+pip install burp-report-generator     # or: pipx install burp-report-generator
+burp-report                           # opens the web UI in your browser
+```
+
+Or run it from source, if you want to change the code or templates:
 
 ```powershell
 git clone https://github.com/AnirudhKK/Burp-Suite-Report-Generator.git
@@ -30,7 +39,7 @@ cd Burp-Suite-Report-Generator
 python -m venv .venv
 .venv\Scripts\Activate.ps1            # macOS / Linux: source .venv/bin/activate
 pip install -r requirements.txt
-python generate_report.py             # opens the web UI in your browser
+python generate_report.py             # same as burp-report
 ```
 
 ### Option 2: Windows executable (no Python needed)
@@ -40,10 +49,12 @@ python generate_report.py             # opens the web UI in your browser
 3. If Windows shows **"Windows protected your PC"**, click **More info → Run anyway** (the exe isn't
    code-signed).
 
-To check the download, compare its hash with the release's `.sha256` file:
+To check the download, compare its hash with the release's `.sha256` file. To also prove that GitHub Actions
+built it from this repository's source, use the [GitHub CLI](https://cli.github.com/):
 
 ```powershell
-(Get-FileHash .\BurpReportGenerator-v1.0.5.exe -Algorithm SHA256).Hash
+(Get-FileHash .\BurpReportGenerator-v1.0.6.exe -Algorithm SHA256).Hash
+gh attestation verify BurpReportGenerator-v1.0.6.exe --repo AnirudhKK/Burp-Suite-Report-Generator
 ```
 
 PDF export uses Microsoft Edge or Google Chrome on your PC. Edge ships with Windows, so this usually needs nothing
@@ -51,16 +62,17 @@ extra.
 
 ## Build
 
-Build the exe yourself:
+Build the exe and the Python package yourself:
 
 ```powershell
 pip install -r requirements-dev.txt
-pyinstaller packaging/BurpReportGenerator.spec --noconfirm --clean
-# result: dist\BurpReportGenerator-v<version>.exe
+pyinstaller packaging/BurpReportGenerator.spec --noconfirm --clean   # dist\BurpReportGenerator-v<version>.exe
+python -m build                                                      # dist\*.whl and dist\*.tar.gz
 ```
 
-GitHub Actions builds and tests the exe on every push. To publish a release, bump `__version__` in
-`burp_report/__init__.py`, commit, then tag and push:
+GitHub Actions builds and tests both on every push, and records signed build provenance for them. To publish
+a release, bump `__version__` in `burp_report/__init__.py` and commit. Then tag and push; this publishes the
+GitHub Release and the PyPI package:
 
 ```powershell
 git tag v1.1.0
@@ -87,7 +99,8 @@ python generate_report.py scan.xml --cli                   # terminal wizard
 python generate_report.py scan.xml -y -f all -t modern --client "Acme" -o reports/acme   # batch
 ```
 
-With the exe, replace `python generate_report.py` with `.\BurpReportGenerator-v<version>.exe`.
+Installed from PyPI, use `burp-report` instead of `python generate_report.py`. With the exe, use
+`.\BurpReportGenerator-v<version>.exe`.
 
 | Flag | Description |
 |---|---|
@@ -106,7 +119,7 @@ With the exe, replace `python generate_report.py` with `.\BurpReportGenerator-v<
 | `--export-template NAME DEST` | Copy a template to edit |
 | `--version`, `-h` | Version; help |
 
-Command-line flags override profile values. See [Documentation.md](Documentation.md#6-command-line-reference)
+Command-line flags override profile values. See [Documentation.md](https://github.com/AnirudhKK/Burp-Suite-Report-Generator/blob/main/Documentation.md#6-command-line-reference)
 for the web UI, the wizard and every profile setting.
 
 ## Create your own template
@@ -123,7 +136,7 @@ for the web UI, the wizard and every profile setting.
    ```
    In the web UI, use **Template & styling → Custom template folder** instead.
 
-[Documentation.md](Documentation.md#13-making-your-own-template) lists every block, CSS variable and template
+[Documentation.md](https://github.com/AnirudhKK/Burp-Suite-Report-Generator/blob/main/Documentation.md#13-making-your-own-template) lists every block, CSS variable and template
 variable.
 
 ## Security notes
@@ -137,7 +150,7 @@ variable.
   runs under a strict Content Security Policy.
 - **Privacy:** no data is sent anywhere. Everything, including PDF rendering, happens locally.
 
-Found a vulnerability? Please report it privately; see [SECURITY.md](SECURITY.md).
+Found a vulnerability? Please report it privately; see [SECURITY.md](https://github.com/AnirudhKK/Burp-Suite-Report-Generator/blob/main/SECURITY.md).
 
 ## Layout
 
@@ -150,10 +163,10 @@ burp_report/              the application
   pdf.py                  PDF via Edge/Chrome
   redact.py, highlight.py, owasp.py, sanitize.py
   cli.py, web.py          command line and web UI server
-  webui/, templates/, fonts/
-samples/                  example Burp export
+  webui/, templates/, fonts/, samples/
 tests/                    unit tests + e2e/ web UI tests
 packaging/                PyInstaller spec and icon
+pyproject.toml            PyPI package definition
 .github/                  build/release and CodeQL workflows, Dependabot, issue templates
 Documentation.md          full guide
 CHANGELOG.md              release history
@@ -162,5 +175,5 @@ SECURITY.md               how to report vulnerabilities
 
 ## License
 
-[MIT](LICENSE). The bundled fonts are licensed separately under the SIL Open Font License 1.1; each
+[MIT](https://github.com/AnirudhKK/Burp-Suite-Report-Generator/blob/main/LICENSE). The bundled fonts are licensed separately under the SIL Open Font License 1.1; each
 font's licence text is next to it in `burp_report/fonts/`.
