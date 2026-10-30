@@ -1,4 +1,5 @@
 """End-to-end tests of the web UI in Microsoft Edge. They run in order and share one page."""
+
 import http.client
 import json
 import time
@@ -127,8 +128,11 @@ def test_scroll_position_kept_across_rerender(page):
 
 def test_template_cards_switch_template(page):
     open_panel(page, 1)
-    for key, marker in (("modern", "--accent-2"), ("minimal", "text-transform: uppercase; letter-spacing: .06em"),
-                        ("corporate", "Georgia")):
+    for key, marker in (
+        ("modern", "--accent-2"),
+        ("minimal", "text-transform: uppercase; letter-spacing: .06em"),
+        ("corporate", "Georgia"),
+    ):
         page.click(f".tcard[data-key='{key}']")
         wait_ready(page)
         assert marker in preview_frame(page).content(), f"{key}: marker missing"
@@ -140,7 +144,8 @@ def test_accent_colour_and_font(page):
     wait_ready(page)
     assert "--accent: #0f766e" in preview_frame(page).content()
     page.locator(".swatch.custom input").evaluate(
-        "e => { e.value = '#ff0088'; e.dispatchEvent(new Event('input', {bubbles:true})) }")
+        "e => { e.value = '#ff0088'; e.dispatchEvent(new Event('input', {bubbles:true})) }"
+    )
     wait_ready(page)
     assert "--accent: #ff0088" in preview_frame(page).content()
     page.select_option("#font", label="Georgia (serif)")
@@ -355,7 +360,7 @@ def test_redaction(page):
 def test_owasp_section(page):
     sec = preview(page).locator("#owasp")
     expect(sec).to_be_attached()
-    expect(sec.locator("tbody tr")).to_have_count(11)   # A01-A10 + not mapped
+    expect(sec.locator("tbody tr")).to_have_count(11)  # A01-A10 + not mapped
     expect(sec.locator("h2")).to_have_text("OWASP Top 10:2025 mapping")
     expect(sec.locator("tr", has_text="A05").locator("a.fid")).to_have_count(2)
     expect(preview(page).locator(".toc a[href='#owasp']")).to_have_count(1)
@@ -435,8 +440,18 @@ def test_profile_save_reset_load(page, dl):
 
 def test_malformed_profile_is_handled(page, dl):
     bad = dl / "bad_profile.json"
-    bad.write_text(json.dumps({"severities": "High", "max_evidence_chars": "lots", "sections": [1, 2],
-                               "title": 42, "prepared_by": "Still Loaded"}), encoding="utf-8")
+    bad.write_text(
+        json.dumps(
+            {
+                "severities": "High",
+                "max_evidence_chars": "lots",
+                "sections": [1, 2],
+                "title": 42,
+                "prepared_by": "Still Loaded",
+            }
+        ),
+        encoding="utf-8",
+    )
     page.set_input_files("#profileFile", str(bad))
     wait_ready(page)
     expect(page.locator("[data-bind='prepared_by']")).to_have_value("Still Loaded")
@@ -477,12 +492,15 @@ def test_nasty_xml_upload(page, fx, events):
 
 
 def test_drop_file_onto_window(page):
-    page.evaluate("""async (bytes) => {
+    page.evaluate(
+        """async (bytes) => {
         const dt = new DataTransfer();
         dt.items.add(new File([new Uint8Array(bytes)], 'dropped.xml', {type: 'text/xml'}));
         window.dispatchEvent(new DragEvent('dragenter', {dataTransfer: dt}));
         window.dispatchEvent(new DragEvent('drop', {dataTransfer: dt, cancelable: true}));
-    }""", list(SAMPLE.read_bytes()))
+    }""",
+        list(SAMPLE.read_bytes()),
+    )
     expect(page.locator("#scanName")).to_have_text("dropped.xml", timeout=15000)
     wait_ready(page)
     assert "drag" not in (page.locator("body").get_attribute("class") or "")
@@ -511,7 +529,7 @@ def test_app_layout_at_phone_width(browser, server, page):
     ctx = browser.new_context(viewport={"width": 390, "height": 844})
     p = ctx.new_page()
     p.goto(server["base"])
-    wait_ready(p, 60000)   # the server already holds a scan, so the preview loads straight away
+    wait_ready(p, 60000)  # the server already holds a scan, so the preview loads straight away
     sw = p.evaluate("document.documentElement.scrollWidth")
     ctx.close()
     assert sw <= 391, f"scrollWidth={sw}"
@@ -533,6 +551,9 @@ def test_api_rejects_untrusted_requests(server):
 
 def test_no_unexpected_console_errors(events):
     # Rejected inputs above (bad profile, bad XML, bad regex) answer 400 on purpose.
-    unexpected = [e for e in events["console"] if "status of 400" not in e and "kaspersky" not in e.lower()
-                  and e != "Failed to load resource: net::ERR_FAILED"]
+    unexpected = [
+        e
+        for e in events["console"]
+        if "status of 400" not in e and "kaspersky" not in e.lower() and e != "Failed to load resource: net::ERR_FAILED"
+    ]
     assert not unexpected, unexpected

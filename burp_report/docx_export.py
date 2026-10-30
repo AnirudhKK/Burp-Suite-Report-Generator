@@ -3,6 +3,7 @@
 Needs python-docx (pip install python-docx). Word can't use the web fonts embedded in the HTML report,
 so each template maps to fonts that ship with Microsoft Office / Windows.
 """
+
 from __future__ import annotations
 
 import base64
@@ -28,6 +29,7 @@ try:
     from docx.table import Table
     from docx.text.paragraph import Paragraph
     from lxml import etree
+
     DOCX_AVAILABLE = True
 except ImportError:  # pragma: no cover - reported to the user instead
     DOCX_AVAILABLE = False
@@ -41,17 +43,26 @@ THEMES = {
 }
 # Office-safe stand-ins for the web fonts offered in the font picker.
 FONT_EQUIVALENTS = {
-    "inter": "Segoe UI", "source sans 3": "Calibri", "source serif 4": "Cambria",
-    "ibm plex sans": "Arial", "jetbrains mono": "Consolas", "system-ui": "Segoe UI",
+    "inter": "Segoe UI",
+    "source sans 3": "Calibri",
+    "source serif 4": "Cambria",
+    "ibm plex sans": "Arial",
+    "jetbrains mono": "Consolas",
+    "system-ui": "Segoe UI",
 }
 GENERIC_FAMILIES = {"sans-serif", "serif", "monospace", "-apple-system", "cursive", "fantasy"}
 MONO = "Consolas"
 TEXT, MUTED, SURFACE, BORDER = "1D2330", "5F6B7A", "F4F6F9", "DDE3EA"
 CODE_BG = "F3F5F8"
-SEV_COLORS = {"High": "C62828", "Medium": "E46C0A", "Low": "D6A400", "Information": "4F7FB5",
-              "False positive": "8A8F98"}
+SEV_COLORS = {
+    "High": "C62828",
+    "Medium": "E46C0A",
+    "Low": "D6A400",
+    "Information": "4F7FB5",
+    "False positive": "8A8F98",
+}
 SEV_TEXT = {"Low": "2B2100"}
-SEV_SHORT = {"Information": "Info", "False positive": "FP"}   # narrow table headers
+SEV_SHORT = {"Information": "Info", "False positive": "FP"}  # narrow table headers
 _XML_INVALID = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\ud800-\udfff￾￿]")
 
 
@@ -93,7 +104,8 @@ def _theme(cfg: ReportConfig) -> dict:
 
 # ---------------------------------------------------------------- low-level helpers
 
-def _rgb(h: str) -> "RGBColor":
+
+def _rgb(h: str) -> RGBColor:
     return RGBColor.from_string(h)
 
 
@@ -123,10 +135,10 @@ def _widths(table, widths_cm: list[float]) -> None:
     """Fixed column widths (Word ignores cell widths while the table autofits)."""
     table.autofit = False
     grid = table._tbl.tblGrid
-    for col, w in zip(grid.findall(qn("w:gridCol")), widths_cm):
+    for col, w in zip(grid.findall(qn("w:gridCol")), widths_cm, strict=False):
         col.set(qn("w:w"), str(int(Cm(w).twips)))
     for row in table.rows:
-        for cell, w in zip(row.cells, widths_cm):
+        for cell, w in zip(row.cells, widths_cm, strict=False):
             cell.width = Cm(w)
 
 
@@ -202,10 +214,12 @@ def _no_split(row) -> None:
 
 def _field(paragraph, instr: str, placeholder: str = "") -> None:
     """Insert a Word field (PAGE, NUMPAGES, TOC ...)."""
+
     def fld(kind):
         el = OxmlElement("w:fldChar")
         el.set(qn("w:fldCharType"), kind)
         return el
+
     r1 = paragraph.add_run()
     r1._element.append(fld("begin"))
     r2 = paragraph.add_run()
@@ -230,8 +244,15 @@ def _bookmark(paragraph, name: str, bid: int) -> None:
     paragraph._p.append(end)
 
 
-def _hyperlink(paragraph, text: str, url: str = "", anchor: str = "", color: str = "0563C1", font: str | None = None,
-               bold: bool = False):
+def _hyperlink(
+    paragraph,
+    text: str,
+    url: str = "",
+    anchor: str = "",
+    color: str = "0563C1",
+    font: str | None = None,
+    bold: bool = False,
+):
     link = OxmlElement("w:hyperlink")
     if anchor:
         link.set(qn("w:anchor"), anchor)
@@ -269,10 +290,11 @@ def _keep_with_next(paragraph) -> None:
 
 # ---------------------------------------------------------------- Burp HTML → paragraphs
 
+
 class _HtmlToDocx(HTMLParser):
     """Writes sanitized Burp HTML (p, lists, bold/italic, code, links, tables...) into a document or cell."""
 
-    BLOCKS = {"p", "div", "blockquote", "h1", "h2", "h3", "h4", "h5", "h6", "pre", "tr"}
+    BLOCKS = frozenset({"p", "div", "blockquote", "h1", "h2", "h3", "h4", "h5", "h6", "pre", "tr"})
 
     def __init__(self, container, body_font: str):
         super().__init__(convert_charrefs=True)
@@ -280,7 +302,7 @@ class _HtmlToDocx(HTMLParser):
         self.body_font = body_font
         self.para = None
         self.fmt: list[str] = []
-        self.lists: list[list] = []      # [kind, counter]
+        self.lists: list[list] = []  # [kind, counter]
         self.link: str | None = None
         self.link_text: list[str] = []
         self.pre = 0
@@ -360,9 +382,7 @@ class _HtmlToDocx(HTMLParser):
             self.para = None
         elif tag == "li":
             self.para = None
-        elif tag == "th" and "b" in self.fmt:
-            self.fmt.remove("b")
-        elif tag in ("b", "strong") and "b" in self.fmt:
+        elif (tag == "th" and "b" in self.fmt) or (tag in ("b", "strong") and "b" in self.fmt):
             self.fmt.remove("b")
         elif tag in ("i", "em") and "i" in self.fmt:
             self.fmt.remove("i")
@@ -401,6 +421,7 @@ def _burp_html(container, fragment: str, body_font: str) -> None:
 
 
 # ---------------------------------------------------------------- the document
+
 
 class _FastDoc:
     """A python-docx Document whose add_paragraph/add_heading/add_table insert in constant time.
@@ -560,7 +581,7 @@ class _Builder:
         hdr = tbl.rows[0]
         _repeat_header(hdr)
         fill = header_fill or self.t["accent"]
-        for cell, text in zip(hdr.cells, headers):
+        for cell, text in zip(hdr.cells, headers, strict=False):
             _shade(cell, fill)
             p = cell.paragraphs[0]
             p.paragraph_format.space_after = Pt(0)
@@ -571,7 +592,7 @@ class _Builder:
         for values in rows:
             row = tbl.add_row()
             _no_split(row)
-            for cell, value in zip(row.cells, values):
+            for cell, value in zip(row.cells, values, strict=False):
                 p = cell.paragraphs[0]
                 p.paragraph_format.space_after = Pt(0)
                 if callable(value):
@@ -727,8 +748,16 @@ class _Builder:
             r = p.add_run(_clean(meta["client"]))
             r.bold = True
             r.font.size = Pt(13)
-        rows = [(k, v) for k, v in (("Prepared by", meta["prepared_by"]), ("Organisation", meta["company"]),
-                                    ("Date", meta["date"]), ("Version", meta["version"])) if v]
+        rows = [
+            (k, v)
+            for k, v in (
+                ("Prepared by", meta["prepared_by"]),
+                ("Organisation", meta["company"]),
+                ("Date", meta["date"]),
+                ("Version", meta["version"]),
+            )
+            if v
+        ]
         tbl = doc.add_table(rows=0, cols=2)
         _no_borders(tbl)
         for k, v in rows:
@@ -748,7 +777,7 @@ class _Builder:
             return  # SVG/WebP logos aren't supported by Word's picture import
         try:
             self.doc.add_picture(io.BytesIO(base64.b64decode(m.group(2))), height=Cm(1.8))
-        except Exception:  # noqa: BLE001 - a broken image shouldn't stop the export
+        except Exception:
             pass
 
     def toc(self):
@@ -775,8 +804,13 @@ class _Builder:
         # shows this static list with working links.
         tp = self.doc.add_paragraph()
         _field_toc(tp, entries, self.t["accent"])
-        note = self.para("Page numbers appear when Word updates fields (it asks when the file is opened; "
-                         "or right-click the list and choose Update Field).", size=8, italic=True, color=MUTED)
+        note = self.para(
+            "Page numbers appear when Word updates fields (it asks when the file is opened; "
+            "or right-click the list and choose Update Field).",
+            size=8,
+            italic=True,
+            color=MUTED,
+        )
         note.add_run().add_break(WD_BREAK.PAGE)
 
     def severity_tiles(self):
@@ -786,7 +820,7 @@ class _Builder:
         tbl = self.doc.add_table(rows=1, cols=len(sevs))
         _borders(tbl, "FFFFFF", size=12)
         _cell_margins(tbl, 120, 120, 140, 140)
-        for cell, sev in zip(tbl.rows[0].cells, sevs):
+        for cell, sev in zip(tbl.rows[0].cells, sevs, strict=False):
             _shade(cell, SEV_COLORS.get(sev, SEV_COLORS["Information"]))
             ink = _rgb(SEV_TEXT.get(sev, "FFFFFF"))
             p = cell.paragraphs[0]
@@ -817,14 +851,20 @@ class _Builder:
                 r = p.add_run(f"  {round(n / total * 100)}%")
                 r.font.size = Pt(8.5)
                 r.font.color.rgb = _rgb(MUTED)
+
             return draw
 
-        self.table(["Severity", "Findings", "Instances", "Share of findings"],
-                   [[lambda p, s=s: self.badge(p, s), str(counts[s]), str(c["instance_counts"][s]), bar(s)] for s in sevs],
-                   widths=[3.2, 2.2, 2.4, 8.8])
-        self.para(f"{c['total_findings']} unique finding{'s' if c['total_findings'] != 1 else ''} "
-                  f"({c['total_instances']} instance{'s' if c['total_instances'] != 1 else ''}) after filtering.",
-                  size=9, color=MUTED)
+        self.table(
+            ["Severity", "Findings", "Instances", "Share of findings"],
+            [[lambda p, s=s: self.badge(p, s), str(counts[s]), str(c["instance_counts"][s]), bar(s)] for s in sevs],
+            widths=[3.2, 2.2, 2.4, 8.8],
+        )
+        self.para(
+            f"{c['total_findings']} unique finding{'s' if c['total_findings'] != 1 else ''} "
+            f"({c['total_instances']} instance{'s' if c['total_instances'] != 1 else ''}) after filtering.",
+            size=9,
+            color=MUTED,
+        )
 
     def findings_table(self):
         c = self.ctx
@@ -849,22 +889,32 @@ class _Builder:
         sevs = c["severities"]
         rows = []
         for h in c["hosts"]:
-            rows.append([h["host"] or "—", h["ip"] or "—"] + [str(h["counts"][s]) if h["counts"][s] else "–" for s in sevs]
-                        + [str(h["total"])])
+            rows.append(
+                [h["host"] or "—", h["ip"] or "—"]
+                + [str(h["counts"][s]) if h["counts"][s] else "–" for s in sevs]
+                + [str(h["total"])]
+            )
         if not rows:
             self.para("No hosts.", italic=True, color=MUTED)
             return
         sev_w = [min(2.2, 6.6 / max(len(sevs), 1))] * len(sevs)
-        self.table(["Host", "IP address"] + [SEV_SHORT.get(x, x) for x in sevs] + ["Total"], rows, _spread([], 1, 16.6 - 2.8 - sum(sev_w) - 1.4)
-                   + [2.8] + sev_w + [1.4])
+        self.table(
+            ["Host", "IP address"] + [SEV_SHORT.get(x, x) for x in sevs] + ["Total"],
+            rows,
+            _spread([], 1, 16.6 - 2.8 - sum(sev_w) - 1.4) + [2.8] + sev_w + [1.4],
+        )
         self.para("Counts are per issue instance.", size=9, color=MUTED)
 
     def owasp_table(self):
         c = self.ctx
         o, sevs, linked = c["owasp"], c["severities"], c["sections"].get("findings")
-        self.para(f"Findings mapped to the {o['edition']} categories using the CWE identifiers in Burp's export. "
-                  f"A finding can map to more than one category. {o['mapped_total']} of {c['total_findings']} "
-                  f"finding{'s' if c['total_findings'] != 1 else ''} mapped.", size=9, color=MUTED)
+        self.para(
+            f"Findings mapped to the {o['edition']} categories using the CWE identifiers in Burp's export. "
+            f"A finding can map to more than one category. {o['mapped_total']} of {c['total_findings']} "
+            f"finding{'s' if c['total_findings'] != 1 else ''} mapped.",
+            size=9,
+            color=MUTED,
+        )
 
         def ids(findings):
             def draw(p):
@@ -876,29 +926,43 @@ class _Builder:
                     if n:
                         p.add_run(", ").font.size = Pt(9)
                     self.link_or_text(p, f.id, f.anchor.replace("-", "_"), linked)
+
             return draw
 
         rows = []
         for r in o["rows"]:
-            rows.append([f"{r['code']} {r['name']}"] + [str(r["counts"][s]) if r["counts"][s] else "–" for s in sevs]
-                        + [ids(r["findings"])])
+            rows.append(
+                [f"{r['code']} {r['name']}"]
+                + [str(r["counts"][s]) if r["counts"][s] else "–" for s in sevs]
+                + [ids(r["findings"])]
+            )
         if o["unmapped"]:
-            rows.append(["Not mapped"] + [str(o["unmapped_counts"][s]) if o["unmapped_counts"][s] else "–" for s in sevs]
-                        + [ids(o["unmapped"])])
+            rows.append(
+                ["Not mapped"]
+                + [str(o["unmapped_counts"][s]) if o["unmapped_counts"][s] else "–" for s in sevs]
+                + [ids(o["unmapped"])]
+            )
         sev_w = [min(2.1, 8.4 / max(len(sevs), 1))] * len(sevs)
-        self.table(["Category"] + [SEV_SHORT.get(x, x) for x in sevs] + ["Findings"], rows, [5.6] + sev_w + [max(16.6 - 5.6 - sum(sev_w), 2.5)])
+        self.table(
+            ["Category"] + [SEV_SHORT.get(x, x) for x in sevs] + ["Findings"],
+            rows,
+            [5.6] + sev_w + [max(16.6 - 5.6 - sum(sev_w), 2.5)],
+        )
 
     def finding(self, f, page_break: bool):
-        c, fields = self.ctx, self.ctx["fields"]
+        fields = self.ctx["fields"]
         h = self.doc.add_heading(level=2)
         if page_break:
             h.paragraph_format.page_break_before = True
         h.add_run(_clean(f"{f.id}  {f.name}"))
         self.bid += 1
         _bookmark(h, f.anchor.replace("-", "_"), self.bid)
-        meta = [("Severity", lambda p: self.badge(p, f.severity, 9)), ("Confidence", f.confidence),
-                ("Instances", str(f.count)), ("Host" + ("s" if len(f.hosts) > 1 else ""),
-                                             ", ".join(h for h in f.hosts if h) or "—")]
+        meta = [
+            ("Severity", lambda p: self.badge(p, f.severity, 9)),
+            ("Confidence", f.confidence),
+            ("Instances", str(f.count)),
+            ("Host" + ("s" if len(f.hosts) > 1 else ""), ", ".join(h for h in f.hosts if h) or "—"),
+        ]
         if fields.get("cwe_owasp") and f.cwes:
             meta.append(("CWE", "\n".join(f"CWE-{i}" + (f": {t}" if t else "") for i, t in f.cwes)))
         if fields.get("cwe_owasp") and f.owasp:
@@ -912,14 +976,27 @@ class _Builder:
             _burp_html(self.doc, f.issue_background, self.t["body"])
         if fields.get("affected_urls"):
             self.heading("Affected URLs", level=3)
-            rows = [[str(n), lambda p, u=i.url: _mono(p, u), lambda p, s=i.severity: self.badge(p, s), i.confidence]
-                    for n, i in enumerate(f.instances, 1)]
+            rows = [
+                [str(n), lambda p, u=i.url: _mono(p, u), lambda p, s=i.severity: self.badge(p, s), i.confidence]
+                for n, i in enumerate(f.instances, 1)
+            ]
             if f.omitted_instances:
-                rows.append(["", f"… and {f.omitted_instances} more instance{'s' if f.omitted_instances > 1 else ''} not shown", "", ""])
+                rows.append(
+                    [
+                        "",
+                        f"… and {f.omitted_instances} more instance{'s' if f.omitted_instances > 1 else ''} not shown",
+                        "",
+                        "",
+                    ]
+                )
             self.table(["#", "URL", "Severity", "Confidence"], rows, [0.9, 11.0, 2.4, 2.3], header_fill=MUTED)
         for n, inst in enumerate(f.instances, 1):
-            body = ((fields.get("issue_detail") and inst.issue_detail) or (fields.get("detail_items") and inst.detail_items)
-                    or (fields.get("remediation_detail") and inst.remediation_detail) or inst.evidence)
+            body = (
+                (fields.get("issue_detail") and inst.issue_detail)
+                or (fields.get("detail_items") and inst.detail_items)
+                or (fields.get("remediation_detail") and inst.remediation_detail)
+                or inst.evidence
+            )
             if not body:
                 continue
             if len(f.instances) > 1:
@@ -949,7 +1026,11 @@ class _Builder:
                     self.code_block(f"Request{num}{note}", ev["request_text"], ev["request_marks"])
                 if ev["response_text"]:
                     note = " (after redirect)" if ev["redirected"] else ""
-                    note += " (headers only)" if ev["response_headers_only"] else (" (truncated)" if ev["response_truncated"] else "")
+                    note += (
+                        " (headers only)"
+                        if ev["response_headers_only"]
+                        else (" (truncated)" if ev["response_truncated"] else "")
+                    )
                     note += " · payload highlighted" if ev["response_marks"] else ""
                     self.code_block(f"Response{num}{note}", ev["response_text"], ev["response_marks"])
         if fields.get("remediation_background") and f.remediation_background:
@@ -970,30 +1051,52 @@ class _Builder:
             rows.append(("Burp Suite version", sc["burp_version"]))
         if sc["export_time"]:
             rows.append(("Export time", sc["export_time"]))
-        rows += [("Issues in export", str(sc["total_issues"])),
-                 ("Issues included", f"{c['total_instances']}"
-                  + (f" ({sc['filtered_out']} excluded by filters)" if sc["filtered_out"] else "")),
-                 ("Severities included", ", ".join(c["severities"])),
-                 ("Confidence levels included", ", ".join(c["cfg"].confidences))]
+        rows += [
+            ("Issues in export", str(sc["total_issues"])),
+            (
+                "Issues included",
+                f"{c['total_instances']}"
+                + (f" ({sc['filtered_out']} excluded by filters)" if sc["filtered_out"] else ""),
+            ),
+            ("Severities included", ", ".join(c["severities"])),
+            ("Confidence levels included", ", ".join(c["cfg"].confidences)),
+        ]
         if c["fields"].get("evidence"):
-            rows.append(("Evidence redaction",
-                         f"Enabled: {red['count']} sensitive value{'s' if red['count'] != 1 else ''} masked as [REDACTED]"
-                         if red["enabled"] or red["custom"] else "Disabled"))
+            rows.append(
+                (
+                    "Evidence redaction",
+                    f"Enabled: {red['count']} sensitive value{'s' if red['count'] != 1 else ''} masked as [REDACTED]"
+                    if red["enabled"] or red["custom"]
+                    else "Disabled",
+                )
+            )
         rows.append(("Report generated", c["generated_at"]))
         self.kv_table(rows, label_width=5.2)
         self.heading("Severity ratings", level=3)
-        self.kv_table([
-            ("High", "Issues that could lead to significant compromise of data, systems or users and should be fixed as a priority."),
-            ("Medium", "Issues that weaken security and may be exploitable in combination with other weaknesses."),
-            ("Low", "Issues with limited direct impact that represent deviations from best practice."),
-            ("Information", "Observations that do not represent a vulnerability on their own but may be of interest."),
-        ], label_width=3.2)
+        self.kv_table(
+            [
+                (
+                    "High",
+                    "Issues that could lead to significant compromise of data, systems or users and should be fixed as a priority.",
+                ),
+                ("Medium", "Issues that weaken security and may be exploitable in combination with other weaknesses."),
+                ("Low", "Issues with limited direct impact that represent deviations from best practice."),
+                (
+                    "Information",
+                    "Observations that do not represent a vulnerability on their own but may be of interest.",
+                ),
+            ],
+            label_width=3.2,
+        )
         self.heading("Confidence levels", level=3)
-        self.kv_table([
-            ("Certain", "Burp is certain the issue exists."),
-            ("Firm", "The issue is very likely present, but has not been fully confirmed."),
-            ("Tentative", "The issue may be present; manual verification is recommended."),
-        ], label_width=3.2)
+        self.kv_table(
+            [
+                ("Certain", "Burp is certain the issue exists."),
+                ("Firm", "The issue is very likely present, but has not been fully confirmed."),
+                ("Tentative", "The issue may be present; manual verification is recommended."),
+            ],
+            label_width=3.2,
+        )
 
 
 def _code_run(text: str, highlighted: bool):
@@ -1040,17 +1143,20 @@ def _multiline(text: str):
                 p.add_run().add_break()
             r = p.add_run(_clean(line))
             r.font.size = Pt(9.5)
+
     return draw
 
 
 def _field_toc(paragraph, entries: list[tuple[str, str, int]], accent: str) -> None:
     """A TOC field whose cached result is a linked list of the report's headings."""
+
     def fld(kind):
         el = OxmlElement("w:fldChar")
         el.set(qn("w:fldCharType"), kind)
         if kind == "begin":
             el.set(qn("w:dirty"), "true")
         return el
+
     r = paragraph.add_run()
     r._element.append(fld("begin"))
     r = paragraph.add_run()

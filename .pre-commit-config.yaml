@@ -1,0 +1,27 @@
+# Checks run on every commit once you install them: pip install -r requirements-dev.txt, then pre-commit install
+# Run them on every file: pre-commit run --all-files
+# Keep the ruff rev in step with requirements-dev.txt (tests/test_packaging.py checks this).
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.17.3
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      # The sample scan is test data: keep it byte-for-byte as Burp wrote it.
+      - id: trailing-whitespace
+        args: [--markdown-linebreak-ext=md]
+        exclude: ^burp_report/samples/
+      - id: end-of-file-fixer
+        exclude: ^burp_report/samples/
+      - id: mixed-line-ending
+        exclude: ^burp_report/samples/
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: [--maxkb=1024]

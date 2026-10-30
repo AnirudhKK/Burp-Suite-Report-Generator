@@ -1,0 +1,82 @@
+# Builds the documentation site from README.md, Documentation.md, CHANGELOG.md and SECURITY.md (see mkdocs.yml
+# and docs/hooks.py) and publishes it to GitHub Pages.
+#
+# - Pull requests: build only, with broken links and anchors treated as errors.
+# - Pushes to main: build and publish to https://anirudhkk.github.io/Burp-Suite-Report-Generator/
+# One-time setup: Settings → Pages → Source: GitHub Actions.
+name: Documentation site
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - README.md
+      - Documentation.md
+      - CHANGELOG.md
+      - SECURITY.md
+      - docs/**
+      - mkdocs.yml
+      - requirements-docs.txt
+      - .github/workflows/docs.yml
+  pull_request:
+    paths:
+      - README.md
+      - Documentation.md
+      - CHANGELOG.md
+      - SECURITY.md
+      - docs/**
+      - mkdocs.yml
+      - requirements-docs.txt
+      - .github/workflows/docs.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deployment at a time; a newer push waits rather than cancelling a deployment halfway.
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: requirements-docs.txt
+
+      - name: Install MkDocs
+        run: pip install -r requirements-docs.txt
+
+      - name: Build the site
+        env:
+          NO_MKDOCS_2_WARNING: "1"
+        run: mkdocs build --strict
+
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        if: github.event_name != 'pull_request'
+        with:
+          path: site/
+
+  deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

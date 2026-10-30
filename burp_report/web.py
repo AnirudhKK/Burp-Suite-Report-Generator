@@ -4,16 +4,16 @@ Runs a small stdlib HTTP server bound to 127.0.0.1. API calls must carry a
 per-run token and a localhost Host header, so other websites open in the same
 browser cannot drive it.
 """
+
 from __future__ import annotations
 
 import json
 import re
 import secrets
-from collections import OrderedDict
 import tempfile
 import threading
 import webbrowser
-from collections import Counter
+from collections import Counter, OrderedDict
 from dataclasses import asdict
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -29,16 +29,24 @@ WEBUI_DIR = Path(__file__).parent / "webui"
 SAMPLE_XML = Path(__file__).resolve().parent / "samples" / "sample_burp_export.xml"
 MAX_UPLOAD = 256 * 1024 * 1024
 MAX_PREVIEWS = 6
-PDF_SLOTS = threading.BoundedSemaphore(2)   # cap concurrent headless-browser renders
+PDF_SLOTS = threading.BoundedSemaphore(2)  # cap concurrent headless-browser renders
 
 # Previews run in a sandboxed frame with an opaque origin; this CSP is a second fence.
-PREVIEW_CSP = ("default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; "
-               "font-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'self'")
+PREVIEW_CSP = (
+    "default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:; "
+    "font-src data:; base-uri 'none'; form-action 'none'; frame-ancestors 'self'"
+)
 _SCRIPT_RE = re.compile(r"<script\b.*?</script>", re.S | re.I)
 
 ACCENTS = [
-    ("Template default", ""), ("Navy", "#1f3a5f"), ("Royal purple", "#5b3cc4"), ("Teal", "#0f766e"),
-    ("Crimson", "#b91c1c"), ("Forest", "#166534"), ("Ocean", "#0369a1"), ("Charcoal", "#222222"),
+    ("Template default", ""),
+    ("Navy", "#1f3a5f"),
+    ("Royal purple", "#5b3cc4"),
+    ("Teal", "#0f766e"),
+    ("Crimson", "#b91c1c"),
+    ("Forest", "#166534"),
+    ("Ocean", "#0369a1"),
+    ("Charcoal", "#222222"),
 ]
 FONTS = [
     ("Template default", ""),
@@ -56,6 +64,12 @@ SCROLL_BRIDGE = """<script>
 addEventListener('scroll',function(){parent.postMessage({burpScroll:scrollY},'*')},{passive:true});
 addEventListener('message',function(e){if(e.data&&typeof e.data.burpRestore==='number')scrollTo(0,e.data.burpRestore)});
 </script>"""
+
+
+class Server(ThreadingHTTPServer):
+    # The default backlog of 5 makes Windows reset connections when the preview, thumbnails and the browser's
+    # parallel requests arrive together, which surfaced as an intermittent "Preview failed".
+    request_queue_size = 128
 
 
 class State:
@@ -163,19 +177,29 @@ def make_handler(state: State, token: str, port_ref: list[int]):
                 if not secrets.compare_digest(parse_qs(url.query).get("t", [""])[0], token):
                     return self._error("Forbidden", 403)
                 with state.lock:
-                    body = state.previews.get(path[len("/preview/"):])
+                    body = state.previews.get(path[len("/preview/") :])
                 if body is None:
                     return self._send(410, b"<p>Preview expired - change any setting to refresh.</p>", "text/html")
-                return self._send(200, body, "text/html; charset=utf-8",
-                                  {"Content-Security-Policy": PREVIEW_CSP, "Referrer-Policy": "no-referrer"})
+                return self._send(
+                    200,
+                    body,
+                    "text/html; charset=utf-8",
+                    {"Content-Security-Policy": PREVIEW_CSP, "Referrer-Policy": "no-referrer"},
+                )
             if path == "/favicon.ico":
                 return self._send(204, b"", "image/x-icon")
             if path in ("/", "/index.html"):
-                return self._send(200, index_html.encode(), "text/html; charset=utf-8",
-                                  {"Content-Security-Policy": "default-src 'self'; style-src 'self' 'unsafe-inline'; "
-                                   "script-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src data:; "
-                                   "frame-src blob: 'self'; object-src 'none'; base-uri 'none'",
-                                   "Referrer-Policy": "no-referrer"})
+                return self._send(
+                    200,
+                    index_html.encode(),
+                    "text/html; charset=utf-8",
+                    {
+                        "Content-Security-Policy": "default-src 'self'; style-src 'self' 'unsafe-inline'; "
+                        "script-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src data:; "
+                        "frame-src blob: 'self'; object-src 'none'; base-uri 'none'",
+                        "Referrer-Policy": "no-referrer",
+                    },
+                )
             return self._error("Not found", 404)
 
         def do_POST(self):
@@ -200,18 +224,26 @@ def make_handler(state: State, token: str, port_ref: list[int]):
 
                 payload = json.loads(body or b"{}")
                 if route == "/api/meta":
-                    return self._json({
-                        "templates": [{"key": t.key, "name": t.name, "description": t.description} for t in list_templates()],
-                        "sections": SECTIONS, "fields": FINDING_FIELDS,
-                        "severities": SEVERITIES, "confidences": CONFIDENCES,
-                        "accents": ACCENTS, "fonts": FONTS,
-                        "defaults": asdict(ReportConfig()),
-                        "pdf_engine": available_engine(),
-                        "docx_available": DOCX_AVAILABLE, "docx_missing": DOCX_MISSING,
-                        "sample_available": SAMPLE_XML.exists(),
-                        "scan": scan_summary(state.scan),
-                        "profile": state.profile,
-                    })
+                    return self._json(
+                        {
+                            "templates": [
+                                {"key": t.key, "name": t.name, "description": t.description} for t in list_templates()
+                            ],
+                            "sections": SECTIONS,
+                            "fields": FINDING_FIELDS,
+                            "severities": SEVERITIES,
+                            "confidences": CONFIDENCES,
+                            "accents": ACCENTS,
+                            "fonts": FONTS,
+                            "defaults": asdict(ReportConfig()),
+                            "pdf_engine": available_engine(),
+                            "docx_available": DOCX_AVAILABLE,
+                            "docx_missing": DOCX_MISSING,
+                            "sample_available": SAMPLE_XML.exists(),
+                            "scan": scan_summary(state.scan),
+                            "profile": state.profile,
+                        }
+                    )
                 if route == "/api/template":
                     info = resolve_template(str(payload.get("path", "")).strip().strip('"'))
                     return self._json({"path": str(info.resolve())})
@@ -265,8 +297,9 @@ def make_handler(state: State, token: str, port_ref: list[int]):
     return Handler
 
 
-def serve(xml: str | Path | None = None, profile: ReportConfig | None = None,
-          port: int = 0, open_browser: bool = True) -> None:
+def serve(
+    xml: str | Path | None = None, profile: ReportConfig | None = None, port: int = 0, open_browser: bool = True
+) -> None:
     state = State()
     if xml:
         state.scan = parse_burp_xml(xml)
@@ -274,7 +307,7 @@ def serve(xml: str | Path | None = None, profile: ReportConfig | None = None,
         state.profile = asdict(profile)
     token = secrets.token_urlsafe(24)
     port_ref = [0]
-    server = ThreadingHTTPServer(("127.0.0.1", port), make_handler(state, token, port_ref))
+    server = Server(("127.0.0.1", port), make_handler(state, token, port_ref))
     port_ref[0] = server.server_address[1]
     url = f"http://127.0.0.1:{port_ref[0]}/"
     print(f"Burp Suite Report Generator UI running at {url}")

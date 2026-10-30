@@ -1,0 +1,75 @@
+# Documentation site, published to GitHub Pages by .github/workflows/docs.yml.
+# Its pages are built from README.md, Documentation.md, CHANGELOG.md and SECURITY.md (see docs/hooks.py), so those
+# files stay the only copy. docs/ holds just the images and the scripts.
+# Preview locally: pip install -r requirements-docs.txt, then mkdocs serve
+site_name: Burp Suite Report Generator
+site_description: Turn Burp Suite Professional XML exports into client-ready HTML, PDF and Word security reports.
+site_url: https://anirudhkk.github.io/Burp-Suite-Report-Generator/
+repo_url: https://github.com/AnirudhKK/Burp-Suite-Report-Generator
+repo_name: AnirudhKK/Burp-Suite-Report-Generator
+edit_uri: ""
+copyright: MIT licence. Bundled fonts under the SIL Open Font License 1.1.
+
+docs_dir: docs
+exclude_docs: |
+  *.py
+  __pycache__/
+hooks:
+  - docs/hooks.py
+watch:
+  - README.md
+  - Documentation.md
+  - CHANGELOG.md
+  - SECURITY.md
+
+nav:
+  - Home: index.md
+  - Documentation: documentation.md
+  - Changelog: changelog.md
+  - Security: security.md
+
+theme:
+  name: material
+  icon:
+    logo: material/shield-check-outline
+    repo: fontawesome/brands/github
+  font:
+    text: Inter
+    code: JetBrains Mono
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.tabs
+    - navigation.top
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+
+validation:
+  links:
+    anchors: warn

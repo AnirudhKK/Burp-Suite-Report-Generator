@@ -4,6 +4,7 @@ Burp writes e.g. "The payload <b>abc<script>alert(1)</script>xyz</b> was submitt
 The payload usually appears URL-encoded in the request and raw (or HTML-encoded) in the response, so each
 character may match in any of its common encodings.
 """
+
 from __future__ import annotations
 
 import html
@@ -41,7 +42,7 @@ def candidates(issue_detail: str, detail_items: list[str] | None = None) -> list
     detail = issue_detail or ""
     for m in _BOLD.finditer(detail):
         text = _plain(m.group(2))
-        before = _plain(detail[max(0, m.start() - 60):m.start()])
+        before = _plain(detail[max(0, m.start() - 60) : m.start()])
         if not text or len(text) > MAX_LEN:
             continue
         if _PAYLOAD_CONTEXT.search(before) or (len(text) >= 6 and _SPECIAL.search(text)):

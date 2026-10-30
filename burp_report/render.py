@@ -1,4 +1,5 @@
 """Turn a parsed scan + ReportConfig into report HTML using a Jinja2 template."""
+
 from __future__ import annotations
 
 import base64
@@ -8,7 +9,7 @@ import re
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from functools import lru_cache
+from functools import cache
 from pathlib import Path
 
 from jinja2 import ChoiceLoader, Environment, FileSystemLoader, select_autoescape
@@ -16,7 +17,8 @@ from markupsafe import Markup, escape
 
 from . import highlight
 from .config import ReportConfig
-from .owasp import EDITIONS as OWASP_EDITIONS, categories, edition_label, parse_cwes
+from .owasp import EDITIONS as OWASP_EDITIONS
+from .owasp import categories, edition_label, parse_cwes
 from .parser import CONFIDENCE_RANK, SEVERITIES, SEVERITY_RANK, Issue, ScanReport
 from .redact import Redactor
 from .sanitize import sanitize_html
@@ -39,6 +41,7 @@ SEVERITY_ORDER = [s for s in SEVERITIES if s != "False positive"] + ["False posi
 
 
 # ---------------------------------------------------------------- templates
+
 
 @dataclass
 class TemplateInfo:
@@ -78,6 +81,7 @@ def resolve_template(name_or_path: str) -> Path:
 
 # ---------------------------------------------------------------- data model
 
+
 @dataclass
 class Instance:
     issue: Issue
@@ -108,9 +112,9 @@ class Finding:
     classifications: str
     instances: list[Instance] = field(default_factory=list)
     omitted_instances: int = 0
-    cwes: list[tuple[int, str]] = field(default_factory=list)       # (id, title) from Burp's classifications
-    owasp: list[tuple[str, str]] = field(default_factory=list)      # (code, name), e.g. ("A05", "Injection")
-    owasp_edition: str = ""                                         # edition of those codes, e.g. "2025"
+    cwes: list[tuple[int, str]] = field(default_factory=list)  # (id, title) from Burp's classifications
+    owasp: list[tuple[str, str]] = field(default_factory=list)  # (code, name), e.g. ("A05", "Injection")
+    owasp_edition: str = ""  # edition of those codes, e.g. "2025"
 
     @property
     def hosts(self) -> list[str]:
@@ -145,21 +149,33 @@ def _evidence(issue: Issue, cfg: ReportConfig, redactor: Redactor) -> list[dict]
         resp_patterns = highlight.compile_candidates([c for c in found if len(c) >= 3])
     out = []
     for ev in issue.evidence:
-        req, req_cut = (_trim(redactor.message(ev.request), cfg.max_evidence_chars)
-                        if cfg.include_request else ("", False))
-        resp, resp_cut = (_trim(redactor.message(ev.response), cfg.max_evidence_chars, cfg.response_headers_only)
-                          if cfg.include_response else ("", False))
+        req, req_cut = (
+            _trim(redactor.message(ev.request), cfg.max_evidence_chars) if cfg.include_request else ("", False)
+        )
+        resp, resp_cut = (
+            _trim(redactor.message(ev.response), cfg.max_evidence_chars, cfg.response_headers_only)
+            if cfg.include_response
+            else ("", False)
+        )
         if req or resp:
             req_marks = highlight.spans(req, req_patterns)
             resp_marks = highlight.spans(resp, resp_patterns)
-            out.append({"request": highlight.to_markup(req, req_marks), "request_text": req, "request_marks": req_marks,
-                        "request_truncated": req_cut,
-                        "response": highlight.to_markup(resp, resp_marks), "response_text": resp,
-                        "response_marks": resp_marks,
-                        "response_truncated": resp_cut and not cfg.response_headers_only,
-                        "response_headers_only": cfg.response_headers_only and resp_cut,
-                        "highlighted": bool(req_marks or resp_marks),
-                        "method": ev.method, "redirected": ev.redirected})
+            out.append(
+                {
+                    "request": highlight.to_markup(req, req_marks),
+                    "request_text": req,
+                    "request_marks": req_marks,
+                    "request_truncated": req_cut,
+                    "response": highlight.to_markup(resp, resp_marks),
+                    "response_text": resp,
+                    "response_marks": resp_marks,
+                    "response_truncated": resp_cut and not cfg.response_headers_only,
+                    "response_headers_only": cfg.response_headers_only and resp_cut,
+                    "highlighted": bool(req_marks or resp_marks),
+                    "method": ev.method,
+                    "redirected": ev.redirected,
+                }
+            )
     return out
 
 
@@ -167,7 +183,8 @@ def filter_issues(scan: ScanReport, cfg: ReportConfig) -> list[Issue]:
     hosts = set(cfg.include_hosts)
     excluded = set(cfg.exclude_issue_names)
     return [
-        i for i in scan.issues
+        i
+        for i in scan.issues
         if i.severity in cfg.severities
         and i.confidence in cfg.confidences
         and (not hosts or i.host in hosts)
@@ -190,21 +207,37 @@ def build_findings(issues: list[Issue], cfg: ReportConfig, redactor: Redactor | 
         limit = cfg.max_instances_per_finding or len(members)
         instances = [
             Instance(
-                issue=m, severity=m.severity, confidence=m.confidence, url=redactor.text(m.url), host=m.host,
-                ip=m.ip, path=redactor.text(m.path), location=m.location, issue_detail=m.issue_detail,
-                detail_items=m.detail_items, remediation_detail=m.remediation_detail,
+                issue=m,
+                severity=m.severity,
+                confidence=m.confidence,
+                url=redactor.text(m.url),
+                host=m.host,
+                ip=m.ip,
+                path=redactor.text(m.path),
+                location=m.location,
+                issue_detail=m.issue_detail,
+                detail_items=m.detail_items,
+                remediation_detail=m.remediation_detail,
                 evidence=_evidence(m, cfg, redactor),
             )
             for m in members[:limit]
         ]
-        findings.append(Finding(
-            id="", anchor="", name=first.name, type_id=first.type_id,
-            severity=first.severity, confidence=first.confidence,
-            issue_background=first.issue_background,
-            remediation_background=first.remediation_background,
-            references=first.references, classifications=first.classifications,
-            instances=instances, omitted_instances=max(0, len(members) - limit),
-        ))
+        findings.append(
+            Finding(
+                id="",
+                anchor="",
+                name=first.name,
+                type_id=first.type_id,
+                severity=first.severity,
+                confidence=first.confidence,
+                issue_background=first.issue_background,
+                remediation_background=first.remediation_background,
+                references=first.references,
+                classifications=first.classifications,
+                instances=instances,
+                omitted_instances=max(0, len(members) - limit),
+            )
+        )
         findings[-1].cwes = parse_cwes(first.classifications)
         findings[-1].owasp = categories([c for c, _ in findings[-1].cwes], cfg.owasp_edition)
         findings[-1].owasp_edition = cfg.owasp_edition
@@ -238,9 +271,14 @@ def _owasp_summary(findings: list[Finding], edition: str) -> dict:
         members = [f for f in findings if any(c == code for c, _ in f.owasp)]
         rows.append({"code": code, "name": name, "findings": members, "counts": Counter(f.severity for f in members)})
     unmapped = [f for f in findings if not f.owasp]
-    return {"edition": edition_label(edition), "year": edition, "rows": rows, "unmapped": unmapped,
-            "unmapped_counts": Counter(f.severity for f in unmapped),
-            "mapped_total": sum(1 for f in findings if f.owasp)}
+    return {
+        "edition": edition_label(edition),
+        "year": edition,
+        "rows": rows,
+        "unmapped": unmapped,
+        "unmapped_counts": Counter(f.severity for f in unmapped),
+        "mapped_total": sum(1 for f in findings if f.owasp),
+    }
 
 
 def _auto_summary(findings: list[Finding], counts: Counter, hosts: list[dict], cfg: ReportConfig) -> str:
@@ -249,19 +287,27 @@ def _auto_summary(findings: list[Finding], counts: Counter, hosts: list[dict], c
         return "No issues matching the selected criteria were identified during the assessment."
     parts = [f"{counts[s]} {s.lower()}" for s in SEVERITY_ORDER if counts[s]]
     who = f" for {cfg.client}" if cfg.client else ""
-    text = (f"This report presents the results of an automated web application security assessment{who} "
-            f"performed with Burp Suite Professional. A total of {total} unique "
-            f"issue{'s' if total != 1 else ''} were identified across {len(hosts)} "
-            f"host{'s' if len(hosts) != 1 else ''}, rated as: {', '.join(parts)}.")
+    text = (
+        f"This report presents the results of an automated web application security assessment{who} "
+        f"performed with Burp Suite Professional. A total of {total} unique "
+        f"issue{'s' if total != 1 else ''} were identified across {len(hosts)} "
+        f"host{'s' if len(hosts) != 1 else ''}, rated as: {', '.join(parts)}."
+    )
     if counts["High"]:
         top = [f.name for f in findings if f.severity == "High"][:3]
-        text += (f"\n\nHigh severity issues require prompt attention, including: {'; '.join(top)}. "
-                 f"These should be remediated as a priority and re-tested to confirm the fix.")
+        text += (
+            f"\n\nHigh severity issues require prompt attention, including: {'; '.join(top)}. "
+            f"These should be remediated as a priority and re-tested to confirm the fix."
+        )
     elif counts["Medium"]:
-        text += ("\n\nNo high severity issues were identified. Medium severity issues should be "
-                 "addressed as part of the regular remediation cycle.")
-    text += ("\n\nAutomated scanning may produce false positives and cannot identify every class of "
-             "vulnerability; results should be validated and complemented by manual testing.")
+        text += (
+            "\n\nNo high severity issues were identified. Medium severity issues should be "
+            "addressed as part of the regular remediation cycle."
+        )
+    text += (
+        "\n\nAutomated scanning may produce false positives and cannot identify every class of "
+        "vulnerability; results should be validated and complemented by manual testing."
+    )
     return text
 
 
@@ -280,6 +326,7 @@ def _logo_uri(path: str, data_uri: str = "") -> str:
 
 
 # ---------------------------------------------------------------- jinja
+
 
 def _paragraphs(text: str) -> Markup:
     if not text:
@@ -311,26 +358,34 @@ def valid_font(value: str) -> bool:
     return bool(_CSS_FONT.match(value.strip()))
 
 
-@lru_cache(maxsize=None)
+@cache
 def _font_face(family: str) -> str:
     filename, weights = BUNDLED_FONTS[family]
     data = base64.b64encode((FONTS_DIR / filename).read_bytes()).decode("ascii")
-    return (f'@font-face {{ font-family: "{family}"; font-style: normal; font-weight: {weights}; '
-            f'font-display: block; src: url(data:font/woff2;base64,{data}) format("woff2"); }}')
+    return (
+        f'@font-face {{ font-family: "{family}"; font-style: normal; font-weight: {weights}; '
+        f'font-display: block; src: url(data:font/woff2;base64,{data}) format("woff2"); }}'
+    )
 
 
 def _font_faces(template_css: str, custom_stack: str) -> Markup:
     """@font-face rules for the bundled fonts referenced (quoted) by the template or named in the custom font stack."""
     custom = {name.strip().strip("'\"").lower() for name in (custom_stack or "").split(",")}
-    used = [f for f in BUNDLED_FONTS
-            if (f'"{f}"' in template_css or f"'{f}'" in template_css or f.lower() in custom)
-            and (FONTS_DIR / BUNDLED_FONTS[f][0]).is_file()]
+    used = [
+        f
+        for f in BUNDLED_FONTS
+        if (f'"{f}"' in template_css or f"'{f}'" in template_css or f.lower() in custom)
+        and (FONTS_DIR / BUNDLED_FONTS[f][0]).is_file()
+    ]
     return Markup("\n".join(_font_face(f) for f in used))
 
 
 def _template_css(template_dir: Path) -> str:
-    return "\n".join(p.read_text(encoding="utf-8", errors="replace")
-                     for p in (template_dir / "report.html.j2", COMMON_DIR / "base.css") if p.is_file())
+    return "\n".join(
+        p.read_text(encoding="utf-8", errors="replace")
+        for p in (template_dir / "report.html.j2", COMMON_DIR / "base.css")
+        if p.is_file()
+    )
 
 
 def _make_env(template_dir: Path) -> Environment:
@@ -366,10 +421,16 @@ def build_context(scan: ScanReport, cfg: ReportConfig, output_format: str = "htm
         "sections": cfg.sections,
         "fields": cfg.fields,
         "meta": {
-            "title": cfg.title, "subtitle": cfg.subtitle, "client": cfg.client,
-            "prepared_by": cfg.prepared_by, "company": cfg.company, "date": report_date,
-            "version": cfg.version, "classification": cfg.classification,
-            "footer": cfg.footer_text, "logo": _logo_uri(cfg.logo_path, cfg.logo_data),
+            "title": cfg.title,
+            "subtitle": cfg.subtitle,
+            "client": cfg.client,
+            "prepared_by": cfg.prepared_by,
+            "company": cfg.company,
+            "date": report_date,
+            "version": cfg.version,
+            "classification": cfg.classification,
+            "footer": cfg.footer_text,
+            "logo": _logo_uri(cfg.logo_path, cfg.logo_data),
         },
         "executive_summary": cfg.executive_summary or _auto_summary(findings, counts, hosts, cfg),
         "scope": cfg.scope,
@@ -382,8 +443,10 @@ def build_context(scan: ScanReport, cfg: ReportConfig, output_format: str = "htm
         "total_instances": len(issues),
         "max_count": max([counts[s] for s in severities] + [1]),
         "scan": {
-            "source": scan.source.name, "burp_version": scan.burp_version,
-            "export_time": scan.export_time, "total_issues": len(scan.issues),
+            "source": scan.source.name,
+            "burp_version": scan.burp_version,
+            "export_time": scan.export_time,
+            "total_issues": len(scan.issues),
             "filtered_out": len(scan.issues) - len(issues),
         },
         "generated_at": datetime.now().strftime("%Y-%m-%d %H:%M"),

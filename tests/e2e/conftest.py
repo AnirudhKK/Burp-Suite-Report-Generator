@@ -3,6 +3,7 @@
 The tests in test_webui.py run in file order and build on each other's state, like a person using the app.
 Set BURP_REPORT_EXE to a built .exe to test that instead of the Python source.
 """
+
 import os
 import socket
 import subprocess
@@ -14,9 +15,9 @@ from pathlib import Path
 import pytest
 
 pytest.importorskip("playwright.sync_api", reason="Playwright not installed (pip install -r requirements-dev.txt)")
-from playwright.sync_api import sync_playwright  # noqa: E402
+from playwright.sync_api import sync_playwright
 
-from ..conftest import ROOT  # noqa: E402
+from ..conftest import ROOT
 
 RESULTS = ROOT / "test-results"
 
@@ -32,10 +33,16 @@ def server():
     port = _free_port()
     exe = os.environ.get("BURP_REPORT_EXE")
     cmd = [str(Path(exe).resolve())] if exe else [sys.executable, "generate_report.py"]
-    proc = subprocess.Popen([*cmd, "--port", str(port), "--no-browser"], cwd=ROOT,
-                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8")
+    proc = subprocess.Popen(
+        [*cmd, "--port", str(port), "--no-browser"],
+        cwd=ROOT,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        encoding="utf-8",
+    )
     base = f"http://127.0.0.1:{port}/"
-    for _ in range(120):   # a single-file exe needs a few seconds to unpack
+    for _ in range(120):  # a single-file exe needs a few seconds to unpack
         try:
             urllib.request.urlopen(base)
             break
@@ -47,7 +54,7 @@ def server():
         proc.kill()
         pytest.fail("server did not start")
     yield {"base": base, "port": port}
-    if os.name == "nt":   # /T also stops the child process a single-file exe starts
+    if os.name == "nt":  # /T also stops the child process a single-file exe starts
         subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"], capture_output=True)
     else:
         proc.kill()

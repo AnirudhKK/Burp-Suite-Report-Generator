@@ -1,0 +1,3 @@
+# The documentation site (mkdocs.yml). Preview it with: mkdocs serve
+mkdocs==1.6.1
+mkdocs-material==9.8.0

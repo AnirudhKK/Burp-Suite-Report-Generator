@@ -35,17 +35,22 @@ def test_binary_body_is_replaced_by_a_note():
     assert "\x89PNG" not in resp
 
 
-@pytest.mark.parametrize("data, message", [
-    (b"<foo/>", "Expected a Burp <issues> export"),
-    (b"not xml", "Not a valid XML file"),
-])
+@pytest.mark.parametrize(
+    "data, message",
+    [
+        (b"<foo/>", "Expected a Burp <issues> export"),
+        (b"not xml", "Not a valid XML file"),
+    ],
+)
 def test_rejects_non_burp_files(data, message):
     with pytest.raises(ValueError, match=message):
         parse_burp_bytes(data, "x.xml")
 
 
 def test_external_entities_are_not_resolved():
-    xxe = (b'<?xml version="1.0"?><!DOCTYPE issues [<!ENTITY x SYSTEM "file:///c:/windows/win.ini">]>'
-           b"<issues><issue><name>&x;</name></issue></issues>")
+    xxe = (
+        b'<?xml version="1.0"?><!DOCTYPE issues [<!ENTITY x SYSTEM "file:///c:/windows/win.ini">]>'
+        b"<issues><issue><name>&x;</name></issue></issues>"
+    )
     with pytest.raises(ValueError):
         parse_burp_bytes(xxe, "xxe.xml")

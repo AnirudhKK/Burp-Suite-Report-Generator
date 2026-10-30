@@ -1,4 +1,5 @@
 """Parse Burp Suite Professional XML issue exports."""
+
 from __future__ import annotations
 
 import base64
@@ -9,11 +10,25 @@ from pathlib import Path
 SEVERITIES = ["High", "Medium", "Low", "Information", "False positive"]
 CONFIDENCES = ["Certain", "Firm", "Tentative"]
 SEVERITY_RANK = {s: i for i, s in enumerate(SEVERITIES)}
-_SEVERITY_ALIASES = {s.lower(): s for s in SEVERITIES} | {"info": "Information", "informational": "Information",
-                                                         "false-positive": "False positive", "falsepositive": "False positive"}
+_SEVERITY_ALIASES = {s.lower(): s for s in SEVERITIES} | {
+    "info": "Information",
+    "informational": "Information",
+    "false-positive": "False positive",
+    "falsepositive": "False positive",
+}
 _CONFIDENCE_ALIASES = {c.lower(): c for c in CONFIDENCES}
-_BINARY_TYPES = ("image/", "font/", "audio/", "video/", "application/octet-stream", "application/pdf",
-                 "application/zip", "application/x-shockwave-flash", "application/font", "application/vnd.")
+_BINARY_TYPES = (
+    "image/",
+    "font/",
+    "audio/",
+    "video/",
+    "application/octet-stream",
+    "application/pdf",
+    "application/zip",
+    "application/x-shockwave-flash",
+    "application/font",
+    "application/vnd.",
+)
 CONFIDENCE_RANK = {c: i for i, c in enumerate(CONFIDENCES)}
 
 
@@ -134,31 +149,35 @@ def parse_burp_bytes(data: bytes, source: str | Path = "report.xml") -> ScanRepo
         evidence = []
         for rr in el.findall("requestresponse"):
             req = rr.find("request")
-            evidence.append(Evidence(
-                request=_decode(req),
-                response=_decode(rr.find("response")),
-                method=req.get("method", "") if req is not None else "",
-                redirected=_text(rr, "responseRedirected").lower() == "true",
-            ))
-        issues.append(Issue(
-            serial=_text(el, "serialNumber"),
-            type_id=_text(el, "type"),
-            name=_text(el, "name") or "Unnamed issue",
-            host=(host_el.text or "").strip() if host_el is not None else "",
-            ip=host_el.get("ip", "") if host_el is not None else "",
-            path=_text(el, "path"),
-            location=_text(el, "location"),
-            severity=_norm(_text(el, "severity"), _SEVERITY_ALIASES, "Information"),
-            confidence=_norm(_text(el, "confidence"), _CONFIDENCE_ALIASES, "Tentative"),
-            issue_background=_text(el, "issueBackground"),
-            remediation_background=_text(el, "remediationBackground"),
-            references=_text(el, "references"),
-            classifications=_text(el, "vulnerabilityClassifications"),
-            issue_detail=_text(el, "issueDetail"),
-            detail_items=[(d.text or "").strip() for d in el.findall("issueDetailItems/issueDetailItem")],
-            remediation_detail=_text(el, "remediationDetail"),
-            evidence=evidence,
-        ))
+            evidence.append(
+                Evidence(
+                    request=_decode(req),
+                    response=_decode(rr.find("response")),
+                    method=req.get("method", "") if req is not None else "",
+                    redirected=_text(rr, "responseRedirected").lower() == "true",
+                )
+            )
+        issues.append(
+            Issue(
+                serial=_text(el, "serialNumber"),
+                type_id=_text(el, "type"),
+                name=_text(el, "name") or "Unnamed issue",
+                host=(host_el.text or "").strip() if host_el is not None else "",
+                ip=host_el.get("ip", "") if host_el is not None else "",
+                path=_text(el, "path"),
+                location=_text(el, "location"),
+                severity=_norm(_text(el, "severity"), _SEVERITY_ALIASES, "Information"),
+                confidence=_norm(_text(el, "confidence"), _CONFIDENCE_ALIASES, "Tentative"),
+                issue_background=_text(el, "issueBackground"),
+                remediation_background=_text(el, "remediationBackground"),
+                references=_text(el, "references"),
+                classifications=_text(el, "vulnerabilityClassifications"),
+                issue_detail=_text(el, "issueDetail"),
+                detail_items=[(d.text or "").strip() for d in el.findall("issueDetailItems/issueDetailItem")],
+                remediation_detail=_text(el, "remediationDetail"),
+                evidence=evidence,
+            )
+        )
 
     return ScanReport(
         source=path,

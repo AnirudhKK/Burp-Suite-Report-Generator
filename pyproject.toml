@@ -56,3 +56,27 @@ burp_report = ["templates/**/*", "fonts/*", "webui/*", "samples/*"]
 
 [tool.setuptools.dynamic]
 version = { attr = "burp_report.__version__" }
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "B", "UP", "SIM", "C4", "PIE", "RUF"]
+ignore = [
+    "E501",                        # long lines: the formatter wraps code; long strings and URLs stay readable
+    "RUF001", "RUF002", "RUF003",  # en dashes, arrows and other deliberate Unicode in text
+    "SIM105",                      # try/except/pass reads as clearly as contextlib.suppress
+    "RUF005",                      # list concatenation is fine for building table rows
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["burp_report"]
+
+[tool.coverage.run]
+source = ["burp_report"]
+
+[tool.coverage.report]
+fail_under = 70   # web.py and cli.py look low: the web UI tests run the server in a separate, unmeasured process
+show_missing = true
+skip_covered = true

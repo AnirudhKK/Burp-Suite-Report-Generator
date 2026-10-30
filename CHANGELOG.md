@@ -5,6 +5,25 @@ All notable changes to this project are listed here. The format follows
 [Semantic Versioning](https://semver.org/). Download releases from the
 [Releases page](https://github.com/AnirudhKK/Burp-Suite-Report-Generator/releases).
 
+## [Unreleased]
+
+### Added
+- **Documentation site** on GitHub Pages: <https://anirudhkk.github.io/Burp-Suite-Report-Generator/>. It is built
+  from `README.md`, `Documentation.md`, `CHANGELOG.md` and `SECURITY.md`, so there is still only one copy of each.
+- **Screenshots** of the web UI and reports in the README and the documentation. `docs/make_screenshots.py`
+  regenerates them from the sample scan.
+- **Ruff** lint and format checks, run in CI by a new **lint** job, and a `pre-commit` configuration that runs
+  them on each commit.
+- **Test coverage:** CI shows a coverage table on each run's summary page and fails if coverage drops below 70%.
+- **OpenSSF Scorecard** workflow, which rates the repository's security practices, with a README badge.
+
+### Fixed
+- The web UI could intermittently show **Preview failed** on Windows when several requests reached the local
+  server at once. The server now queues up to 128 waiting connections instead of 5.
+
+### Changed
+- All Python code formatted with Ruff. Behaviour is unchanged.
+
 ## [1.0.6] - 2026-10-31
 
 ### Added
@@ -74,6 +93,7 @@ All notable changes to this project are listed here. The format follows
 - CWE and OWASP Top 10 mapping.
 - A single-file Windows exe that needs no Python.
 
+[Unreleased]: https://github.com/AnirudhKK/Burp-Suite-Report-Generator/compare/v1.0.6...HEAD
 [1.0.6]: https://github.com/AnirudhKK/Burp-Suite-Report-Generator/releases/tag/v1.0.6
 [1.0.5]: https://github.com/AnirudhKK/Burp-Suite-Report-Generator/releases/tag/v1.0.5
 [1.0.4]: https://github.com/AnirudhKK/Burp-Suite-Report-Generator/releases/tag/v1.0.4

@@ -3,15 +3,44 @@
 Issue details can echo content from the scanned target, so nothing outside a
 small set of formatting tags and safe link targets is passed through.
 """
+
 from __future__ import annotations
 
 from html import escape
 from html.parser import HTMLParser
 
 ALLOWED_TAGS = {
-    "p", "br", "b", "strong", "i", "em", "u", "ul", "ol", "li", "a", "code", "pre",
-    "h1", "h2", "h3", "h4", "h5", "h6", "table", "thead", "tbody", "tr", "th", "td",
-    "span", "div", "blockquote", "sub", "sup", "hr",
+    "p",
+    "br",
+    "b",
+    "strong",
+    "i",
+    "em",
+    "u",
+    "ul",
+    "ol",
+    "li",
+    "a",
+    "code",
+    "pre",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "table",
+    "thead",
+    "tbody",
+    "tr",
+    "th",
+    "td",
+    "span",
+    "div",
+    "blockquote",
+    "sub",
+    "sup",
+    "hr",
 }
 VOID_TAGS = {"br", "hr"}
 DROP_CONTENT = {"script", "style", "iframe", "object", "embed", "template", "noscript"}

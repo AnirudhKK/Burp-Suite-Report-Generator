@@ -9,10 +9,16 @@ from burp_report.pdf import available_engine
 from .conftest import SAMPLE
 
 
-@pytest.mark.parametrize("value, expected", [
-    ("html", ["html"]), ("both", ["html", "pdf"]), ("all", ["html", "pdf", "docx"]),
-    ("docx,HTML", ["html", "docx"]), (" pdf , docx ", ["pdf", "docx"]),
-])
+@pytest.mark.parametrize(
+    "value, expected",
+    [
+        ("html", ["html"]),
+        ("both", ["html", "pdf"]),
+        ("all", ["html", "pdf", "docx"]),
+        ("docx,HTML", ["html", "docx"]),
+        (" pdf , docx ", ["pdf", "docx"]),
+    ],
+)
 def test_parse_formats(value, expected):
     assert parse_formats(value) == expected
 

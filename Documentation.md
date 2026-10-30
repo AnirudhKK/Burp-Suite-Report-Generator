@@ -1,6 +1,7 @@
 # Burp Suite Report Generator: Documentation
 
-The complete guide. For a quick start, see [README.md](README.md).
+The complete guide. For a quick start, see [README.md](README.md). This guide is also published as a website:
+<https://anirudhkk.github.io/Burp-Suite-Report-Generator/>.
 
 ## Contents
 
@@ -153,6 +154,8 @@ python generate_report.py --port 8080 --no-browser # fixed port; open http://127
 
 To load a scan, click **browse**, drop the XML file onto the window, or click **Try the sample report** to try
 the tool with the bundled example.
+
+![Burp Report Studio with the sample scan loaded: settings on the left, live report preview on the right](docs/images/studio.png)
 
 ### Settings (left side)
 
@@ -365,6 +368,8 @@ print.
 
 ## 9. Evidence: payload highlighting and redaction
 
+![A finding's request and response: the XSS payload is highlighted and the session cookie shows as REDACTED](docs/images/finding-evidence.png)
+
 ### Payload highlighting (on by default)
 
 Burp names the payload in each issue's detail, for example "The payload `abc<script>alert(1)</script>xyz` was
@@ -483,6 +488,8 @@ SVG and WebP logos aren't supported in Word; use PNG or JPG.
 | `minimal` | Compact, monochrome, printer-friendly | IBM Plex Sans |
 
 Request and response evidence uses JetBrains Mono in every template.
+
+![The modern template's findings overview: severity chart and findings summary table](docs/images/template-modern.png)
 
 ### Bundled fonts
 
@@ -637,24 +644,26 @@ The exe's name, its Windows version details and the PyPI package version all com
 
 `.github/workflows/build-exe.yml` (named **Build and release** in the Actions tab) runs these jobs:
 
-1. **test**: unit tests and web UI tests on a Windows runner.
-2. **test-python-versions**: the unit tests on Linux with Python 3.10 and 3.14, the oldest and newest versions
+1. **lint**: `ruff check` and `ruff format --check`. Problems show as annotations on the changed lines.
+2. **test**: unit tests and web UI tests on a Windows runner. The unit-test coverage table is added to the run's
+   summary page, and the job fails if coverage drops below the `fail_under` value in `pyproject.toml`.
+3. **test-python-versions**: the unit tests on Linux with Python 3.10 and 3.14, the oldest and newest versions
    the package supports.
-3. **build** (the Windows exe):
+4. **build** (the Windows exe):
    1. builds the exe;
    2. checks `--version` and `--list-templates`;
    3. exports the sample scan to HTML, PDF and Word;
    4. runs the web UI tests again, with the exe serving the app;
    5. writes a SHA-256 checksum;
    6. records signed build provenance.
-4. **package** (the PyPI package):
+5. **package** (the PyPI package):
    1. builds the wheel and source archive, and checks them with `twine check --strict`;
    2. installs the wheel into a clean environment;
    3. runs `burp-report` from outside the source folder: version, templates, and an HTML and Word export of the
       bundled sample;
    4. records signed build provenance.
-5. **pypi**: for version tags only, publishes the package to PyPI.
-6. **release**: for version tags only, publishes a GitHub Release. It holds the exe, its checksum, the wheel and
+6. **pypi**: for version tags only, publishes the package to PyPI.
+7. **release**: for version tags only, publishes a GitHub Release. It holds the exe, its checksum, the wheel and
    source archive, and notes covering SmartScreen, `pip install` and how to verify downloads.
 
 When each job runs:
@@ -735,11 +744,64 @@ anywhere else, fails. All attestations are listed under the repository's **Actio
 Attestations need a public repository on GitHub's Free, Pro or Team plans; private repositories need GitHub
 Enterprise Cloud.
 
+### Documentation site
+
+`.github/workflows/docs.yml` publishes this guide to GitHub Pages at <https://anirudhkk.github.io/Burp-Suite-Report-Generator/>.
+
+- **Source:** the pages are built from `README.md` (home page), `Documentation.md`, `CHANGELOG.md` and
+  `SECURITY.md`, so there's only one copy of each. `docs/hooks.py` copies them in at build time and points their
+  links at the site's own pages. `docs/` holds only the images and scripts.
+- **When:** on every push to `main` that changes one of those files, `docs/` or `mkdocs.yml`. Pull requests
+  build the site, with broken links and anchors treated as errors, but don't publish it.
+- **Preview locally:**
+  ```powershell
+  pip install -r requirements-docs.txt
+  mkdocs serve                     # http://127.0.0.1:8000, reloads as you edit
+  ```
+- **One-time setup:** in GitHub, open **Settings → Pages** and set **Source** to **GitHub Actions**.
+
+### Screenshots
+
+The images in `docs/images/` (used by the README and this guide) are taken from the bundled sample scan by a
+script. After changing the web UI or a template, regenerate them:
+
+```powershell
+pip install -r requirements-dev.txt
+python docs/make_screenshots.py
+```
+
+The README links to the images on `main` with absolute URLs, because PyPI shows the README too. New screenshots
+appear on PyPI with the next release.
+
+### Code style: Ruff and pre-commit
+
+[Ruff](https://docs.astral.sh/ruff/) checks the code for bugs and style problems, and formats it. Its settings
+are in `pyproject.toml` under `[tool.ruff]`: 120-character lines and a set of rule groups (pyflakes,
+pycodestyle, import order, bugbear, pyupgrade, simplify and Ruff's own rules).
+
+```powershell
+ruff check .           # report problems
+ruff check --fix .     # fix the ones Ruff can fix safely
+ruff format .          # format every file
+```
+
+The **lint** job runs the same checks on every push and pull request. To catch problems before you commit, install
+the [pre-commit](https://pre-commit.com/) hooks once:
+
+```powershell
+pre-commit install          # from then on, every git commit runs the checks
+pre-commit run --all-files  # run them on everything now
+```
+
+`.pre-commit-config.yaml` runs Ruff plus some basic checks: trailing whitespace, a newline at the end of each
+file, mixed line endings, valid YAML and TOML, leftover merge-conflict markers, and accidentally committed large
+files. Keep its Ruff `rev` the same as the Ruff version in `requirements-dev.txt`; a test checks this.
+
 ### Dependency updates
 
 Every Monday, Dependabot (`.github/dependabot.yml`) opens two grouped pull requests:
 - one for the GitHub Actions versions;
-- one for the Python packages in `requirements.txt` and `requirements-dev.txt`.
+- one for the Python packages in `requirements.txt`, `requirements-dev.txt` and `requirements-docs.txt`.
 
 The workflow tests and builds each one, so merge it once the checks pass.
 
@@ -758,6 +820,19 @@ or re-tagged action can't change what runs. Dependabot updates the SHA and the c
 CodeQL is free for public repositories. A private repository needs GitHub Advanced Security, and without it this
 workflow fails.
 
+### Security practices score (OpenSSF Scorecard)
+
+`.github/workflows/scorecard.yml` runs [OpenSSF Scorecard](https://scorecard.dev/), which rates the repository's
+security practices from 0 to 10. It checks things like pinned dependencies, branch protection, code review,
+token permissions, CodeQL, Dependabot, a security policy and signed releases.
+
+- **When:** on every push to `main`, every Monday, when branch protection rules change, and on demand.
+- **Results:** under **Security → Code scanning**, where each check that scored low explains how to improve it.
+  The score is also published to the public Scorecard API, which the README badge reads.
+- **Badge:** shows "invalid" until the workflow has run once on `main`.
+
+It works on public repositories only.
+
 ### Reporting problems
 
 - **Bugs and feature requests:** open an issue. The templates ask for the version, the mode and the output
@@ -773,6 +848,7 @@ python -m pytest                      # everything (about 2 minutes)
 python -m pytest -m "not e2e"         # unit tests only (seconds)
 python -m pytest tests/e2e            # web UI tests only
 python -m pytest -k redact -v         # tests whose name matches "redact"
+python -m pytest -m "not e2e" --cov   # unit tests with a coverage report (lines not covered are listed)
 $env:BURP_REPORT_EXE = "dist\BurpReportGenerator-v1.0.6.exe"; python -m pytest tests/e2e   # test a built exe
 ```
 
@@ -831,6 +907,10 @@ burp_report/
     corporate/ modern/ minimal/   report.html.j2 + template.json each
   samples/
     sample_burp_export.xml  example export used by "Try the sample report" and the tests
+docs/
+  images/                   screenshots used by the README and this guide
+  make_screenshots.py       regenerates the screenshots from the sample scan
+  hooks.py                  builds the documentation site from the root Markdown files
 tests/
   test_*.py                 unit tests
   fixtures.py               generated edge-case inputs
@@ -840,12 +920,17 @@ packaging/
   icon.ico, make_icon.py    app icon
 .github/
   workflows/build-exe.yml   test → build exe + package → PyPI + GitHub Release
+  workflows/docs.yml        documentation site → GitHub Pages
   workflows/codeql.yml      CodeQL code scanning
+  workflows/scorecard.yml   OpenSSF Scorecard security practices check
   ISSUE_TEMPLATE/           bug report and feature request forms
   dependabot.yml            weekly dependency update PRs
-pyproject.toml              PyPI package definition (burp-report-generator, `burp-report` command)
+pyproject.toml              PyPI package definition, plus Ruff and coverage settings
 requirements.txt            runtime dependencies (kept in step with pyproject.toml)
-requirements-dev.txt        test and build dependencies (pinned)
+requirements-dev.txt        test, lint and build dependencies (pinned)
+requirements-docs.txt       documentation site dependencies (pinned)
+mkdocs.yml                  documentation site settings
+.pre-commit-config.yaml     checks run on each commit (after pre-commit install)
 pytest.ini                  test settings
 README.md                   quick start
 Documentation.md            this guide

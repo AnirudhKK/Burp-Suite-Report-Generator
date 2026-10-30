@@ -31,8 +31,15 @@ def test_request_secrets_are_masked(redactor):
     out = redactor.message(REQUEST)
     for secret in ("abc123", "8f2a1c9e", "en;", "xyz", "eyJhbGci", "k-123", "999", "hunter2", "csrf_token=tok"):
         assert secret not in out, secret
-    for kept in ("Host: shop.example.com", "X-Requested-With: XMLHttpRequest", "page=2", "username=bob",
-                 "remember=1", "q=hello", "next=/home"):
+    for kept in (
+        "Host: shop.example.com",
+        "X-Requested-With: XMLHttpRequest",
+        "page=2",
+        "username=bob",
+        "remember=1",
+        "q=hello",
+        "next=/home",
+    ):
         assert kept in out, kept
     assert "Authorization: Bearer " + MASK in out
 

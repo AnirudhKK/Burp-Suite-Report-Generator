@@ -1,4 +1,5 @@
 """Interactive (and scriptable) command-line front end."""
+
 from __future__ import annotations
 
 import argparse
@@ -23,17 +24,35 @@ from .owasp import EDITIONS, edition_label
 from .parser import CONFIDENCES, SEVERITIES, ScanReport, parse_burp_xml
 from .pdf import available_engine, html_to_pdf
 from .redact import compile_custom
-from .render import (COMMON_DIR, build_findings, filter_issues, list_templates, render_html,
-                     resolve_template, valid_color, valid_font)
+from .render import (
+    COMMON_DIR,
+    build_findings,
+    filter_issues,
+    list_templates,
+    render_html,
+    resolve_template,
+    valid_color,
+    valid_font,
+)
 
 console = Console(highlight=False)
 
-SEV_STYLE = {"High": "bold red", "Medium": "bold dark_orange", "Low": "bold yellow",
-             "Information": "bold blue", "False positive": "dim"}
+SEV_STYLE = {
+    "High": "bold red",
+    "Medium": "bold dark_orange",
+    "Low": "bold yellow",
+    "Information": "bold blue",
+    "False positive": "dim",
+}
 
 ACCENT_PRESETS = [
-    ("Template default", ""), ("Navy", "#1f3a5f"), ("Royal purple", "#5b3cc4"), ("Teal", "#0f766e"),
-    ("Crimson", "#b91c1c"), ("Forest", "#166534"), ("Charcoal", "#222222"),
+    ("Template default", ""),
+    ("Navy", "#1f3a5f"),
+    ("Royal purple", "#5b3cc4"),
+    ("Teal", "#0f766e"),
+    ("Crimson", "#b91c1c"),
+    ("Forest", "#166534"),
+    ("Charcoal", "#222222"),
 ]
 FONT_PRESETS = [
     ("Template default", ""),
@@ -48,6 +67,7 @@ FONT_PRESETS = [
 
 
 # ---------------------------------------------------------------- helpers
+
 
 def sev(s: str) -> str:
     return f"[{SEV_STYLE.get(s, '')}]{s}[/]"
@@ -79,8 +99,15 @@ def toggle_menu(title: str, options: list[tuple[str, str]], selected: set[str], 
         for n, (key, label) in enumerate(options, 1):
             t.add_row(str(n), "[green]\\[x][/]" if key in selected else "[dim]\\[ ][/]", label)
         console.print(t)
-        ans = Prompt.ask("Toggle numbers (e.g. [cyan]1,3-5[/]), [cyan]a[/]=all, [cyan]n[/]=none, "
-                         "[cyan]Enter[/]=done", default="", show_default=False).strip().lower()
+        ans = (
+            Prompt.ask(
+                "Toggle numbers (e.g. [cyan]1,3-5[/]), [cyan]a[/]=all, [cyan]n[/]=none, [cyan]Enter[/]=done",
+                default="",
+                show_default=False,
+            )
+            .strip()
+            .lower()
+        )
         if not ans:
             if min_one and not selected:
                 console.print("[red]Select at least one option.[/]")
@@ -112,10 +139,14 @@ def ask_text(label: str, current: str) -> str:
 
 
 def ask_multiline(label: str, current: str) -> str:
-    console.print(Panel(rx(current) if current else "[dim](empty)[/]", title=f"Current {label}", title_align="left", expand=False))
-    console.print(f"Enter new {label}. Finish with a line containing only [cyan].[/]  ·  "
-                  "[cyan]@path\\to\\file.txt[/] loads from a file  ·  [cyan]Enter[/] on the first line keeps current  ·  "
-                  "[cyan]-[/] clears")
+    console.print(
+        Panel(rx(current) if current else "[dim](empty)[/]", title=f"Current {label}", title_align="left", expand=False)
+    )
+    console.print(
+        f"Enter new {label}. Finish with a line containing only [cyan].[/]  ·  "
+        "[cyan]@path\\to\\file.txt[/] loads from a file  ·  [cyan]Enter[/] on the first line keeps current  ·  "
+        "[cyan]-[/] clears"
+    )
     lines: list[str] = []
     while True:
         try:
@@ -152,6 +183,7 @@ def ask_path(label: str, must_exist: bool = True, default: str = "") -> Path:
 
 # ---------------------------------------------------------------- summaries
 
+
 def scan_summary(scan: ScanReport) -> None:
     counts = Counter(i.severity for i in scan.issues)
     t = Table(box=box.ROUNDED, title=rx(scan.source.name), title_justify="left")
@@ -161,9 +193,11 @@ def scan_summary(scan: ScanReport) -> None:
     t.add_column("Total", justify="center")
     t.add_row(*[str(counts[s]) for s in SEVERITIES if counts[s] or s != "False positive"], str(len(scan.issues)))
     console.print(t)
-    console.print(f"[dim]{len(scan.issue_names)} issue types · {len(scan.hosts)} host(s)"
-                  f"{' · Burp ' + rx(scan.burp_version) if scan.burp_version else ''}"
-                  f"{' · exported ' + rx(scan.export_time) if scan.export_time else ''}[/]")
+    console.print(
+        f"[dim]{len(scan.issue_names)} issue types · {len(scan.hosts)} host(s)"
+        f"{' · Burp ' + rx(scan.burp_version) if scan.burp_version else ''}"
+        f"{' · exported ' + rx(scan.export_time) if scan.export_time else ''}[/]"
+    )
 
 
 def config_overview(cfg: ReportConfig, scan: ScanReport) -> Table:
@@ -172,31 +206,67 @@ def config_overview(cfg: ReportConfig, scan: ScanReport) -> Table:
     on_sections = sum(cfg.sections.values())
     on_fields = sum(cfg.fields.values())
     hosts = "all hosts" if not cfg.include_hosts else f"{len(cfg.include_hosts)}/{len(scan.hosts)} hosts"
-    ev = "off" if not cfg.fields.get("evidence") else (
-        ", ".join(x for x, on in (("requests", cfg.include_request),
-                                 ("responses" + (" (headers only)" if cfg.response_headers_only else ""),
-                                  cfg.include_response)) if on) or "off")
+    ev = (
+        "off"
+        if not cfg.fields.get("evidence")
+        else (
+            ", ".join(
+                x
+                for x, on in (
+                    ("requests", cfg.include_request),
+                    ("responses" + (" (headers only)" if cfg.response_headers_only else ""), cfg.include_response),
+                )
+                if on
+            )
+            or "off"
+        )
+    )
     rows = [
         ("1", "Output", f"{' + '.join(f.upper() for f in cfg.output_formats)} → {rx(cfg.output_path)}.*"),
-        ("2", "Template & styling", rx(cfg.template)
-         + (f" · accent {rx(cfg.accent_color)}" if cfg.accent_color else "")
-         + (" · custom font" if cfg.font_family else "")
-         + (" · page break per finding" if cfg.page_break_per_finding else "")),
-        ("3", "Report details", rx(cfg.title) + (f" · {rx(cfg.client)}" if cfg.client else "")
-         + (" · logo" if cfg.logo_path else "")),
+        (
+            "2",
+            "Template & styling",
+            rx(cfg.template)
+            + (f" · accent {rx(cfg.accent_color)}" if cfg.accent_color else "")
+            + (" · custom font" if cfg.font_family else "")
+            + (" · page break per finding" if cfg.page_break_per_finding else ""),
+        ),
+        (
+            "3",
+            "Report details",
+            rx(cfg.title) + (f" · {rx(cfg.client)}" if cfg.client else "") + (" · logo" if cfg.logo_path else ""),
+        ),
         ("4", "Sections", f"{on_sections}/{len(SECTIONS)} enabled · {edition_label(cfg.owasp_edition)}"),
         ("5", "Finding fields", f"{on_fields}/{len(FINDING_FIELDS)} enabled"),
-        ("6", "Filters", f"{', '.join(cfg.severities) or 'no severities!'} · {', '.join(cfg.confidences)} · {hosts}"
-         + (f" · {len(cfg.exclude_issue_names)} issue type(s) excluded" if cfg.exclude_issue_names else "")),
-        ("7", "Grouping & sorting", ("grouped by issue type" if cfg.group_by_type else "one finding per instance")
-         + f" · sort by {cfg.sort_by} · ID prefix '{rx(cfg.finding_id_prefix)}'"),
-        ("8", "Evidence", ev + (" · secrets redacted" if cfg.redact_secrets else " · [yellow]no redaction[/]")
-         + (f" · {len(cfg.redact_custom)} custom redaction(s)" if cfg.redact_custom else "")
-         + (" · payloads highlighted" if cfg.highlight_payloads else "")
-         + (f" · max {cfg.max_evidence_chars} chars" if cfg.max_evidence_chars else "")
-         + (f" · max {cfg.max_instances_per_finding} instances/finding" if cfg.max_instances_per_finding else "")),
-        ("9", "Summary & text", ("custom executive summary" if cfg.executive_summary else "auto executive summary")
-         + (" · scope text" if cfg.scope else "") + (" · footer text" if cfg.footer_text else "")),
+        (
+            "6",
+            "Filters",
+            f"{', '.join(cfg.severities) or 'no severities!'} · {', '.join(cfg.confidences)} · {hosts}"
+            + (f" · {len(cfg.exclude_issue_names)} issue type(s) excluded" if cfg.exclude_issue_names else ""),
+        ),
+        (
+            "7",
+            "Grouping & sorting",
+            ("grouped by issue type" if cfg.group_by_type else "one finding per instance")
+            + f" · sort by {cfg.sort_by} · ID prefix '{rx(cfg.finding_id_prefix)}'",
+        ),
+        (
+            "8",
+            "Evidence",
+            ev
+            + (" · secrets redacted" if cfg.redact_secrets else " · [yellow]no redaction[/]")
+            + (f" · {len(cfg.redact_custom)} custom redaction(s)" if cfg.redact_custom else "")
+            + (" · payloads highlighted" if cfg.highlight_payloads else "")
+            + (f" · max {cfg.max_evidence_chars} chars" if cfg.max_evidence_chars else "")
+            + (f" · max {cfg.max_instances_per_finding} instances/finding" if cfg.max_instances_per_finding else ""),
+        ),
+        (
+            "9",
+            "Summary & text",
+            ("custom executive summary" if cfg.executive_summary else "auto executive summary")
+            + (" · scope text" if cfg.scope else "")
+            + (" · footer text" if cfg.footer_text else ""),
+        ),
     ]
     t = Table(box=box.ROUNDED, show_header=False, title="Report settings", title_justify="left")
     t.add_column(style="cyan", justify="right")
@@ -223,6 +293,7 @@ def preview_findings(cfg: ReportConfig, scan: ScanReport) -> None:
 
 # ---------------------------------------------------------------- editors
 
+
 def edit_output(cfg: ReportConfig) -> None:
     engine = available_engine()
     pdf_note = f"[green]PDF engine: {engine}[/]" if engine else "[red]no PDF engine found (see README)[/]"
@@ -232,10 +303,13 @@ def edit_output(cfg: ReportConfig) -> None:
     picked = toggle_menu("Formats to generate", [(f, labels[f]) for f in OUTPUT_FORMATS], set(cfg.output_formats), True)
     cfg.output_formats = [f for f in OUTPUT_FORMATS if f in picked]
     if "html" in cfg.output_formats:
-        cfg.interactive_html = Confirm.ask("Add search & severity filter controls to the HTML report?",
-                                           default=cfg.interactive_html)
+        cfg.interactive_html = Confirm.ask(
+            "Add search & severity filter controls to the HTML report?", default=cfg.interactive_html
+        )
     out = Prompt.ask("Output file (extension added automatically)", default=cfg.output_path).strip().strip('"')
-    cfg.output_path = str(Path(out).with_suffix("")) if Path(out).suffix.lower() in (".html", ".pdf", ".htm", ".docx") else out
+    cfg.output_path = (
+        str(Path(out).with_suffix("")) if Path(out).suffix.lower() in (".html", ".pdf", ".htm", ".docx") else out
+    )
 
 
 def export_template(src_key: str, dest: Path) -> Path:
@@ -269,10 +343,16 @@ def edit_template(cfg: ReportConfig) -> None:
     else:
         base = keys[choose("Which template to start from", [rx(t.name) for t in templates], 1)]
         dest = ask_path("Destination folder", must_exist=False, default=str(Path.cwd() / "my_template"))
-        if dest.exists() and any(dest.iterdir()) and not Confirm.ask(f"{rx(str(dest))} is not empty. Overwrite files?", default=False):
+        if (
+            dest.exists()
+            and any(dest.iterdir())
+            and not Confirm.ask(f"{rx(str(dest))} is not empty. Overwrite files?", default=False)
+        ):
             return
         export_template(base, dest)
-        console.print(f"[green]Exported to {rx(str(dest))}[/]. Edit report.html.j2 / base.css there, then select it as a custom template.")
+        console.print(
+            f"[green]Exported to {rx(str(dest))}[/]. Edit report.html.j2 / base.css there, then select it as a custom template."
+        )
         if Confirm.ask("Use this exported template now?", default=True):
             cfg.template = str(dest.resolve())
 
@@ -304,8 +384,9 @@ def edit_template(cfg: ReportConfig) -> None:
                 break
             console.print("[red]Only letters, digits, spaces, commas, hyphens and quotes are allowed.[/]")
 
-    cfg.page_break_per_finding = Confirm.ask("Start each finding on a new page (PDF/print)?",
-                                             default=cfg.page_break_per_finding)
+    cfg.page_break_per_finding = Confirm.ask(
+        "Start each finding on a new page (PDF/print)?", default=cfg.page_break_per_finding
+    )
 
 
 def edit_details(cfg: ReportConfig) -> None:
@@ -330,27 +411,39 @@ def edit_sections(cfg: ReportConfig) -> None:
     on = toggle_menu("Sections to include", list(SECTIONS.items()), {k for k, v in cfg.sections.items() if v})
     cfg.sections = {k: k in on for k in SECTIONS}
     editions = list(EDITIONS)
-    pick = choose("OWASP Top 10 edition for the mapping section and finding categories",
-                  [edition_label(e) + (" (latest)" if n == 0 else "") for n, e in enumerate(editions)],
-                  editions.index(cfg.owasp_edition) + 1)
+    pick = choose(
+        "OWASP Top 10 edition for the mapping section and finding categories",
+        [edition_label(e) + (" (latest)" if n == 0 else "") for n, e in enumerate(editions)],
+        editions.index(cfg.owasp_edition) + 1,
+    )
     cfg.owasp_edition = editions[pick]
 
 
 def edit_fields(cfg: ReportConfig) -> None:
-    on = toggle_menu("Fields to show for each finding", list(FINDING_FIELDS.items()),
-                     {k for k, v in cfg.fields.items() if v})
+    on = toggle_menu(
+        "Fields to show for each finding", list(FINDING_FIELDS.items()), {k for k, v in cfg.fields.items() if v}
+    )
     cfg.fields = {k: k in on for k in FINDING_FIELDS}
 
 
 def edit_filters(cfg: ReportConfig, scan: ScanReport) -> None:
     counts = Counter(i.severity for i in scan.issues)
     cfg.severities = sorted(
-        toggle_menu("Severities to include", [(s, f"{sev(s)} ({counts[s]})") for s in SEVERITIES], set(cfg.severities), True),
-        key=SEVERITIES.index)
+        toggle_menu(
+            "Severities to include", [(s, f"{sev(s)} ({counts[s]})") for s in SEVERITIES], set(cfg.severities), True
+        ),
+        key=SEVERITIES.index,
+    )
     ccounts = Counter(i.confidence for i in scan.issues)
     cfg.confidences = sorted(
-        toggle_menu("Confidence levels to include", [(c, f"{c} ({ccounts[c]})") for c in CONFIDENCES], set(cfg.confidences), True),
-        key=CONFIDENCES.index)
+        toggle_menu(
+            "Confidence levels to include",
+            [(c, f"{c} ({ccounts[c]})") for c in CONFIDENCES],
+            set(cfg.confidences),
+            True,
+        ),
+        key=CONFIDENCES.index,
+    )
 
     if len(scan.hosts) > 1:
         hcounts = Counter(i.host for i in scan.issues)
@@ -365,20 +458,32 @@ def edit_filters(cfg: ReportConfig, scan: ScanReport) -> None:
             first.setdefault(i.name, i.severity)
         ncounts = Counter(i.name for i in scan.issues)
         names.sort(key=lambda n: (SEVERITIES.index(first[n]) if first[n] in SEVERITIES else 9, n))
-        included = toggle_menu("Issue types to include (untick to exclude)",
-                               [(n, f"{rx(n)} [dim]({ncounts[n]})[/] {sev(first[n])}") for n in names],
-                               set(names) - set(cfg.exclude_issue_names))
+        included = toggle_menu(
+            "Issue types to include (untick to exclude)",
+            [(n, f"{rx(n)} [dim]({ncounts[n]})[/] {sev(first[n])}") for n in names],
+            set(names) - set(cfg.exclude_issue_names),
+        )
         cfg.exclude_issue_names = sorted(set(names) - included)
 
 
 def edit_grouping(cfg: ReportConfig) -> None:
     console.print("\n[bold]Grouping & sorting[/]")
-    cfg.group_by_type = choose("Grouping", [
-        "Group all instances of an issue type into one finding (recommended)",
-        "One finding per issue instance"], 1 if cfg.group_by_type else 2) == 0
+    cfg.group_by_type = (
+        choose(
+            "Grouping",
+            ["Group all instances of an issue type into one finding (recommended)", "One finding per issue instance"],
+            1 if cfg.group_by_type else 2,
+        )
+        == 0
+    )
     sorts = ["severity", "name", "host", "count"]
-    cfg.sort_by = sorts[choose("Sort findings by", ["Severity (then confidence)", "Name", "Host", "Number of instances"],
-                               sorts.index(cfg.sort_by) + 1 if cfg.sort_by in sorts else 1)]
+    cfg.sort_by = sorts[
+        choose(
+            "Sort findings by",
+            ["Severity (then confidence)", "Name", "Host", "Number of instances"],
+            sorts.index(cfg.sort_by) + 1 if cfg.sort_by in sorts else 1,
+        )
+    ]
     cfg.finding_id_prefix = Prompt.ask("Finding ID prefix (e.g. F-, VULN-, WEB-)", default=cfg.finding_id_prefix)
 
 
@@ -389,14 +494,21 @@ def edit_evidence(cfg: ReportConfig) -> None:
         cfg.include_request = Confirm.ask("  Include HTTP requests?", default=cfg.include_request)
         cfg.include_response = Confirm.ask("  Include HTTP responses?", default=cfg.include_response)
         if cfg.include_response:
-            cfg.response_headers_only = Confirm.ask("  Response headers only (drop bodies)?", default=cfg.response_headers_only)
-        cfg.max_evidence_chars = IntPrompt.ask("  Max characters per request/response (0 = unlimited)",
-                                               default=cfg.max_evidence_chars)
-        cfg.highlight_payloads = Confirm.ask("  Highlight the payload Burp names in the issue detail?",
-                                             default=cfg.highlight_payloads)
-        cfg.redact_secrets = Confirm.ask("  Redact secrets (cookies, auth headers, tokens, passwords, keys)?",
-                                         default=cfg.redact_secrets)
-        console.print("  [dim]Extra values to redact: one per line, literal text or /regex/ (/regex/i ignores case).[/]")
+            cfg.response_headers_only = Confirm.ask(
+                "  Response headers only (drop bodies)?", default=cfg.response_headers_only
+            )
+        cfg.max_evidence_chars = IntPrompt.ask(
+            "  Max characters per request/response (0 = unlimited)", default=cfg.max_evidence_chars
+        )
+        cfg.highlight_payloads = Confirm.ask(
+            "  Highlight the payload Burp names in the issue detail?", default=cfg.highlight_payloads
+        )
+        cfg.redact_secrets = Confirm.ask(
+            "  Redact secrets (cookies, auth headers, tokens, passwords, keys)?", default=cfg.redact_secrets
+        )
+        console.print(
+            "  [dim]Extra values to redact: one per line, literal text or /regex/ (/regex/i ignores case).[/]"
+        )
         while True:
             text = ask_multiline("extra values to redact", "\n".join(cfg.redact_custom))
             lines = [x.strip() for x in text.splitlines() if x.strip()]
@@ -406,8 +518,9 @@ def edit_evidence(cfg: ReportConfig) -> None:
                 break
             except ValueError as exc:
                 console.print(f"[red]{rx(str(exc))}[/]")
-    cfg.max_instances_per_finding = IntPrompt.ask("Max instances listed per finding (0 = unlimited)",
-                                                  default=cfg.max_instances_per_finding)
+    cfg.max_instances_per_finding = IntPrompt.ask(
+        "Max instances listed per finding (0 = unlimited)", default=cfg.max_instances_per_finding
+    )
 
 
 def edit_text(cfg: ReportConfig) -> None:
@@ -419,6 +532,7 @@ def edit_text(cfg: ReportConfig) -> None:
 
 
 # ---------------------------------------------------------------- generation
+
 
 def generate(scan: ScanReport, cfg: ReportConfig) -> list[Path]:
     written = []
@@ -446,7 +560,7 @@ def generate(scan: ScanReport, cfg: ReportConfig) -> list[Path]:
 def open_file(path: Path) -> None:
     try:
         if sys.platform == "win32":
-            os.startfile(path)  # noqa: S606
+            os.startfile(path)
         else:
             webbrowser.open(path.resolve().as_uri())
     except OSError as exc:
@@ -455,27 +569,46 @@ def open_file(path: Path) -> None:
 
 def interactive(scan: ScanReport, cfg: ReportConfig, quick_setup: bool) -> None:
     if quick_setup:
-        console.print(Panel("Quick setup – answer a few questions, then fine-tune anything from the menu.",
-                            style="cyan", expand=False))
+        console.print(
+            Panel(
+                "Quick setup – answer a few questions, then fine-tune anything from the menu.",
+                style="cyan",
+                expand=False,
+            )
+        )
         edit_output(cfg)
         console.print("\n[bold]Template[/]")
         templates = list_templates()
         keys = [t.key for t in templates]
-        cfg.template = keys[choose("Template", [f"[bold]{rx(t.name)}[/] [dim]– {rx(t.description)}[/]" for t in templates],
-                                   keys.index(cfg.template) + 1 if cfg.template in keys else 1)]
+        cfg.template = keys[
+            choose(
+                "Template",
+                [f"[bold]{rx(t.name)}[/] [dim]– {rx(t.description)}[/]" for t in templates],
+                keys.index(cfg.template) + 1 if cfg.template in keys else 1,
+            )
+        ]
         cfg.title = ask_text("\nReport title", cfg.title) or cfg.title
         cfg.client = ask_text("Client / target organisation", cfg.client)
         cfg.prepared_by = ask_text("Prepared by", cfg.prepared_by)
 
     editors = {
-        "1": edit_output, "2": edit_template, "3": edit_details, "4": edit_sections, "5": edit_fields,
-        "6": lambda c: edit_filters(c, scan), "7": edit_grouping, "8": edit_evidence, "9": edit_text,
+        "1": edit_output,
+        "2": edit_template,
+        "3": edit_details,
+        "4": edit_sections,
+        "5": edit_fields,
+        "6": lambda c: edit_filters(c, scan),
+        "7": edit_grouping,
+        "8": edit_evidence,
+        "9": edit_text,
     }
     while True:
         console.print()
         console.print(config_overview(cfg, scan))
-        console.print("[cyan]1-9[/] edit · [cyan]p[/] preview findings · [cyan]s[/] save profile · "
-                      "[cyan]g[/] generate · [cyan]q[/] quit")
+        console.print(
+            "[cyan]1-9[/] edit · [cyan]p[/] preview findings · [cyan]s[/] save profile · "
+            "[cyan]g[/] generate · [cyan]q[/] quit"
+        )
         choice = Prompt.ask("Choice", default="g").strip().lower()
         if choice in editors:
             editors[choice](cfg)
@@ -511,6 +644,7 @@ def interactive(scan: ScanReport, cfg: ReportConfig, quick_setup: bool) -> None:
 
 # ---------------------------------------------------------------- entry point
 
+
 def parse_formats(value: str) -> list[str]:
     value = value.strip().lower()
     if value == "both":
@@ -520,7 +654,9 @@ def parse_formats(value: str) -> list[str]:
     picked = [v.strip() for v in value.split(",") if v.strip()]
     bad = [v for v in picked if v not in OUTPUT_FORMATS]
     if bad or not picked:
-        raise argparse.ArgumentTypeError(f"unknown format {', '.join(bad) or value!r}: use html, pdf, docx, both or all")
+        raise argparse.ArgumentTypeError(
+            f"unknown format {', '.join(bad) or value!r}: use html, pdf, docx, both or all"
+        )
     return [f for f in OUTPUT_FORMATS if f in picked]
 
 
@@ -533,22 +669,36 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     p.add_argument("-p", "--profile", help="load settings from a saved JSON profile")
     p.add_argument("-o", "--output", help="output path without extension")
-    p.add_argument("-f", "--format", type=parse_formats, metavar="FORMATS",
-                   help="html, pdf, docx, both (html+pdf), all, or a comma list such as html,docx")
+    p.add_argument(
+        "-f",
+        "--format",
+        type=parse_formats,
+        metavar="FORMATS",
+        help="html, pdf, docx, both (html+pdf), all, or a comma list such as html,docx",
+    )
     p.add_argument("-t", "--template", help="built-in template name or custom template folder")
     p.add_argument("--title", help="report title")
     p.add_argument("--client", help="client name")
-    p.add_argument("--min-severity", choices=["High", "Medium", "Low", "Information"],
-                   help="include this severity and above")
-    p.add_argument("--owasp", choices=list(EDITIONS), metavar="EDITION",
-                   help=f"OWASP Top 10 edition for the mapping: {' or '.join(EDITIONS)} (default {next(iter(EDITIONS))})")
+    p.add_argument(
+        "--min-severity", choices=["High", "Medium", "Low", "Information"], help="include this severity and above"
+    )
+    p.add_argument(
+        "--owasp",
+        choices=list(EDITIONS),
+        metavar="EDITION",
+        help=f"OWASP Top 10 edition for the mapping: {' or '.join(EDITIONS)} (default {next(iter(EDITIONS))})",
+    )
     p.add_argument("-y", "--batch", action="store_true", help="no prompts: generate straight away")
     p.add_argument("--cli", action="store_true", help="use the terminal wizard instead of the web UI")
     p.add_argument("--port", type=int, default=0, help="web UI port (default: random free port)")
     p.add_argument("--no-browser", action="store_true", help="start the web UI without opening a browser")
     p.add_argument("--list-templates", action="store_true", help="list built-in templates and exit")
-    p.add_argument("--export-template", nargs=2, metavar=("NAME", "DEST"),
-                   help="copy a built-in template to DEST for customisation and exit")
+    p.add_argument(
+        "--export-template",
+        nargs=2,
+        metavar=("NAME", "DEST"),
+        help="copy a built-in template to DEST for customisation and exit",
+    )
     return p
 
 
@@ -599,7 +749,7 @@ def main(argv: list[str] | None = None) -> int:
         except FileNotFoundError as exc:
             console.print(f"[red]{rx(str(exc))}[/]")
             return 2
-        console.print(f"[green]Exported to {rx(str(dest))}[/]. Use it with: --template \"{rx(str(dest))}\"")
+        console.print(f'[green]Exported to {rx(str(dest))}[/]. Use it with: --template "{rx(str(dest))}"')
         return 0
 
     if not args.batch and not args.cli:
@@ -627,7 +777,11 @@ def main(argv: list[str] | None = None) -> int:
         console.print(f"[bold red]Could not load profile:[/] {rx(str(exc))}")
         return 2
     if args.output:
-        cfg.output_path = str(Path(args.output).with_suffix("")) if Path(args.output).suffix.lower() in (".html", ".pdf", ".docx") else args.output
+        cfg.output_path = (
+            str(Path(args.output).with_suffix(""))
+            if Path(args.output).suffix.lower() in (".html", ".pdf", ".docx")
+            else args.output
+        )
     if not cfg.output_path:
         cfg.output_path = str(xml_path.with_name(xml_path.stem + "_report"))
     if args.format:

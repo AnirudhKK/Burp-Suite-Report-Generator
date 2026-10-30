@@ -52,3 +52,10 @@ Thumbs.db
 desktop.ini
 .vscode/
 .idea/
+
+# --- Coverage and the documentation site build ---
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+site/

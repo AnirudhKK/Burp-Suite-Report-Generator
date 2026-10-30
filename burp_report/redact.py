@@ -2,6 +2,7 @@
 
 Only the report output is changed; the loaded scan keeps the original data.
 """
+
 from __future__ import annotations
 
 import re
@@ -23,16 +24,34 @@ _HEADER_LINE = re.compile(r"^([A-Za-z0-9!#$%&'*+.^_`|~-]+):[ \t]*(.*)$")
 _PARAM = re.compile(r"(?P<pre>(?P<key>[A-Za-z0-9_.\-\[\]]{1,64})=)(?P<val>[^&\s#;\"'<>]+)")
 # Cheap pre-check: the name-based rules can only fire if one of these appears somewhere in the text.
 # (Substring checks on lowercased text; a case-insensitive regex alternation is ~20x slower on long bodies.)
-_NAME_HINTS = ("pass", "pwd", "secret", "token", "key", "auth", "credential", "sess", "sid", "csrf", "xsrf", "jwt",
-               "otp", "sig")
+_NAME_HINTS = (
+    "pass",
+    "pwd",
+    "secret",
+    "token",
+    "key",
+    "auth",
+    "credential",
+    "sess",
+    "sid",
+    "csrf",
+    "xsrf",
+    "jwt",
+    "otp",
+    "sig",
+)
 _JSON = re.compile(r'(?P<pre>"(?P<key>[^"\\]{1,64})"\s*:\s*")(?P<val>(?:[^"\\]|\\.)+)(?=")')
 _HTML_INPUT = re.compile(
-    r"(?P<pre><input\b[^>]*?\bname\s*=\s*[\"'](?P<key>[^\"']{1,64})[\"'][^>]*?\bvalue\s*=\s*[\"'])(?P<val>[^\"']+)", re.I)
+    r"(?P<pre><input\b[^>]*?\bname\s*=\s*[\"'](?P<key>[^\"']{1,64})[\"'][^>]*?\bvalue\s*=\s*[\"'])(?P<val>[^\"']+)",
+    re.I,
+)
 _TOKEN_PATTERNS = [
-    re.compile(r"eyJ[A-Za-z0-9_-]{5,}\.eyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]*"),            # JWT
+    re.compile(r"eyJ[A-Za-z0-9_-]{5,}\.eyJ[A-Za-z0-9_-]{5,}\.[A-Za-z0-9_-]*"),  # JWT
     # AWS access key id, GitHub token, Slack token, Google API key (one pass over the text)
-    re.compile(r"\b(?:(?:AKIA|ASIA)[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{36,}|xox[abprs]-[A-Za-z0-9-]{10,}"
-               r"|AIza[0-9A-Za-z_-]{35})\b"),
+    re.compile(
+        r"\b(?:(?:AKIA|ASIA)[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{36,}|xox[abprs]-[A-Za-z0-9-]{10,}"
+        r"|AIza[0-9A-Za-z_-]{35})\b"
+    ),
     re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----.*?-----END [A-Z ]*PRIVATE KEY-----", re.S),
 ]
 
@@ -40,12 +59,13 @@ _TOKEN_PATTERNS = [
 @dataclass
 class Redactor:
     """Applies the built-in rules (if enabled) and the user's extra values/patterns."""
+
     builtin: bool = True
     custom: list[re.Pattern] = field(default_factory=list)
     count: int = 0
 
     @classmethod
-    def from_config(cls, enabled: bool, custom_lines: list[str]) -> "Redactor":
+    def from_config(cls, enabled: bool, custom_lines: list[str]) -> Redactor:
         return cls(builtin=enabled, custom=compile_custom(custom_lines))
 
     @property
@@ -59,6 +79,7 @@ class Redactor:
                 return m.group(0)
             self.count += 1
             return (m.group("pre") if keep_prefix else "") + MASK
+
         return pattern.sub(repl, text)
 
     def message(self, text: str) -> str:

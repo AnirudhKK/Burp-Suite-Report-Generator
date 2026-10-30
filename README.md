@@ -5,6 +5,8 @@
 [![PyPI](https://img.shields.io/pypi/v/burp-report-generator)](https://pypi.org/project/burp-report-generator/)
 [![Python](https://img.shields.io/pypi/pyversions/burp-report-generator)](https://pypi.org/project/burp-report-generator/)
 [![CodeQL](https://github.com/AnirudhKK/Burp-Suite-Report-Generator/actions/workflows/codeql.yml/badge.svg)](https://github.com/AnirudhKK/Burp-Suite-Report-Generator/actions/workflows/codeql.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/AnirudhKK/Burp-Suite-Report-Generator/badge)](https://scorecard.dev/viewer/?uri=github.com/AnirudhKK/Burp-Suite-Report-Generator)
+[![Docs](https://img.shields.io/badge/docs-online-indigo)](https://anirudhkk.github.io/Burp-Suite-Report-Generator/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/AnirudhKK/Burp-Suite-Report-Generator/blob/main/LICENSE)
 
 Turn a **Burp Suite Professional XML export** into a polished, client-ready security report in **HTML**,
@@ -16,7 +18,13 @@ Turn a **Burp Suite Professional XML export** into a polished, client-ready secu
 - **OWASP Top 10:2025 and CWE** mapping for every finding (the 2021 edition is available as an option).
 - **Fully offline:** fonts and mappings are bundled; nothing leaves your machine.
 
-Full guide: **[Documentation.md](https://github.com/AnirudhKK/Burp-Suite-Report-Generator/blob/main/Documentation.md)** · What's new: **[CHANGELOG.md](https://github.com/AnirudhKK/Burp-Suite-Report-Generator/blob/main/CHANGELOG.md)**
+![Burp Report Studio: template and styling settings on the left, live preview of the report on the right](https://raw.githubusercontent.com/AnirudhKK/Burp-Suite-Report-Generator/main/docs/images/studio.png)
+
+| Modern template: findings overview | HTTP evidence: payload highlighted, cookie redacted |
+|---|---|
+| ![Modern template showing the severity chart and findings table](https://raw.githubusercontent.com/AnirudhKK/Burp-Suite-Report-Generator/main/docs/images/template-modern.png) | ![A finding's request and response with the XSS payload highlighted and the session cookie shown as REDACTED](https://raw.githubusercontent.com/AnirudhKK/Burp-Suite-Report-Generator/main/docs/images/finding-evidence.png) |
+
+Full guide: **[documentation site](https://anirudhkk.github.io/Burp-Suite-Report-Generator/)** (also in [Documentation.md](https://github.com/AnirudhKK/Burp-Suite-Report-Generator/blob/main/Documentation.md)) · What's new: **[CHANGELOG.md](https://github.com/AnirudhKK/Burp-Suite-Report-Generator/blob/main/CHANGELOG.md)**
 
 ---
 
@@ -85,6 +93,9 @@ git push origin v1.1.0
 pip install -r requirements-dev.txt
 python -m pytest                      # all tests: unit + web UI in Edge (about 2 minutes)
 python -m pytest -m "not e2e"         # unit tests only (seconds)
+python -m pytest -m "not e2e" --cov   # unit tests with a coverage report
+ruff check . ; ruff format --check .  # lint and formatting, as CI runs them
+pre-commit install                    # optional: run those checks on every commit
 ```
 
 ## Usage
@@ -165,9 +176,11 @@ burp_report/              the application
   cli.py, web.py          command line and web UI server
   webui/, templates/, fonts/, samples/
 tests/                    unit tests + e2e/ web UI tests
+docs/                     screenshots, the docs-site hook, make_screenshots.py
+mkdocs.yml                documentation site settings
 packaging/                PyInstaller spec and icon
 pyproject.toml            PyPI package definition
-.github/                  build/release and CodeQL workflows, Dependabot, issue templates
+.github/                  build/release, docs, CodeQL and Scorecard workflows, Dependabot, issue templates
 Documentation.md          full guide
 CHANGELOG.md              release history
 SECURITY.md               how to report vulnerabilities

@@ -4,6 +4,7 @@ Prefers a headless Chromium browser (Edge ships with Windows; Chrome/Chromium
 elsewhere) because it renders the templates exactly like the HTML output.
 Falls back to WeasyPrint if it is installed.
 """
+
 from __future__ import annotations
 
 import os
@@ -27,8 +28,16 @@ _CANDIDATES_MAC = [
     "/Applications/Chromium.app/Contents/MacOS/Chromium",
     "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser",
 ]
-_CANDIDATES_PATH = ["google-chrome", "google-chrome-stable", "chromium", "chromium-browser",
-                    "msedge", "microsoft-edge", "chrome", "brave-browser"]
+_CANDIDATES_PATH = [
+    "google-chrome",
+    "google-chrome-stable",
+    "chromium",
+    "chromium-browser",
+    "msedge",
+    "microsoft-edge",
+    "chrome",
+    "brave-browser",
+]
 
 
 def find_browser() -> str | None:
@@ -56,6 +65,7 @@ def available_engine() -> str | None:
         return "chromium"
     try:
         import weasyprint  # noqa: F401
+
         return "weasyprint"
     except Exception:
         return None

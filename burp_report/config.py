@@ -1,4 +1,5 @@
 """Report configuration: everything the user can customise, saveable as a JSON profile."""
+
 from __future__ import annotations
 
 import json
@@ -39,11 +40,11 @@ FINDING_FIELDS = {
 @dataclass
 class ReportConfig:
     # Output
-    output_formats: list[str] = field(default_factory=lambda: ["html"])   # any of OUTPUT_FORMATS
-    output_path: str = ""          # without extension; extension is added per format
-    template: str = "corporate"    # built-in name or path to a template folder
-    accent_color: str = ""         # overrides the template's accent colour if set
-    font_family: str = ""          # overrides the template's font stack if set
+    output_formats: list[str] = field(default_factory=lambda: ["html"])  # any of OUTPUT_FORMATS
+    output_path: str = ""  # without extension; extension is added per format
+    template: str = "corporate"  # built-in name or path to a template folder
+    accent_color: str = ""  # overrides the template's accent colour if set
+    font_family: str = ""  # overrides the template's font stack if set
     interactive_html: bool = True  # search / severity filter controls in HTML output
     page_break_per_finding: bool = False
 
@@ -53,32 +54,32 @@ class ReportConfig:
     client: str = ""
     prepared_by: str = ""
     company: str = ""
-    report_date: str = ""          # blank = today
+    report_date: str = ""  # blank = today
     version: str = "1.0"
     classification: str = "CONFIDENTIAL"
     logo_path: str = ""
-    logo_data: str = ""            # data: URI (used by the web UI when a logo is uploaded)
+    logo_data: str = ""  # data: URI (used by the web UI when a logo is uploaded)
     finding_id_prefix: str = "F-"
 
     # Free text (plain text; blank lines separate paragraphs)
-    executive_summary: str = ""    # blank = auto-generated
+    executive_summary: str = ""  # blank = auto-generated
     scope: str = ""
     footer_text: str = ""
 
     # Sections & per-finding fields
-    sections: dict[str, bool] = field(default_factory=lambda: {k: True for k in SECTIONS})
-    fields: dict[str, bool] = field(default_factory=lambda: {k: True for k in FINDING_FIELDS})
-    owasp_edition: str = DEFAULT_EDITION   # OWASP Top 10 edition for the mapping: "2025" or "2021"
+    sections: dict[str, bool] = field(default_factory=lambda: dict.fromkeys(SECTIONS, True))
+    fields: dict[str, bool] = field(default_factory=lambda: dict.fromkeys(FINDING_FIELDS, True))
+    owasp_edition: str = DEFAULT_EDITION  # OWASP Top 10 edition for the mapping: "2025" or "2021"
 
     # Filters
     severities: list[str] = field(default_factory=lambda: ["High", "Medium", "Low", "Information"])
     confidences: list[str] = field(default_factory=lambda: ["Certain", "Firm", "Tentative"])
-    include_hosts: list[str] = field(default_factory=list)       # empty = all hosts
+    include_hosts: list[str] = field(default_factory=list)  # empty = all hosts
     exclude_issue_names: list[str] = field(default_factory=list)
 
     # Grouping / ordering
-    group_by_type: bool = True     # merge instances of the same issue type into one finding
-    sort_by: str = "severity"      # severity | name | host | count
+    group_by_type: bool = True  # merge instances of the same issue type into one finding
+    sort_by: str = "severity"  # severity | name | host | count
 
     # Evidence
     include_request: bool = True
@@ -86,19 +87,19 @@ class ReportConfig:
     response_headers_only: bool = False
     max_evidence_chars: int = 6000
     max_instances_per_finding: int = 25
-    highlight_payloads: bool = True   # mark the payload Burp names in the issue detail inside the evidence
-    redact_secrets: bool = True       # mask cookies, auth headers, tokens, passwords and keys in evidence
+    highlight_payloads: bool = True  # mark the payload Burp names in the issue detail inside the evidence
+    redact_secrets: bool = True  # mask cookies, auth headers, tokens, passwords and keys in evidence
     redact_custom: list[str] = field(default_factory=list)  # extra values to mask; "/regex/" or "/regex/i" for patterns
 
     def save(self, path: str | Path) -> None:
         Path(path).write_text(json.dumps(asdict(self), indent=2), encoding="utf-8")
 
     @classmethod
-    def load(cls, path: str | Path) -> "ReportConfig":
+    def load(cls, path: str | Path) -> ReportConfig:
         return cls.from_dict(json.loads(Path(path).read_text(encoding="utf-8")))
 
     @classmethod
-    def from_dict(cls, data: dict) -> "ReportConfig":
+    def from_dict(cls, data: dict) -> ReportConfig:
         """Build a config from a profile, keeping defaults for unknown or wrongly typed values."""
         if not isinstance(data, dict):
             raise ValueError("A profile must be a JSON object")

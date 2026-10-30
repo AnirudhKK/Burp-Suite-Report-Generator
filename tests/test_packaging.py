@@ -1,4 +1,5 @@
 """Packaging metadata stays consistent with the code and requirements.txt."""
+
 import re
 
 import pytest
@@ -13,8 +14,11 @@ PYPROJECT = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
 
 
 def _names(lines):
-    return {re.split(r"[<>=!~\[; ]", line.strip(), maxsplit=1)[0].lower() for line in lines
-            if line.strip() and not line.lstrip().startswith(("#", "-"))}
+    return {
+        re.split(r"[<>=!~\[; ]", line.strip(), maxsplit=1)[0].lower()
+        for line in lines
+        if line.strip() and not line.lstrip().startswith(("#", "-"))
+    }
 
 
 def test_dependencies_match_requirements_txt():
@@ -38,3 +42,9 @@ def test_sample_ships_inside_the_package():
 @pytest.mark.parametrize("pattern", PYPROJECT["tool"]["setuptools"]["package-data"]["burp_report"])
 def test_package_data_patterns_match_files(pattern):
     assert list((ROOT / "burp_report").glob(pattern)), f"{pattern} matches nothing"
+
+
+def test_pre_commit_ruff_matches_requirements_dev():
+    pinned = re.search(r"^ruff==(\S+)", (ROOT / "requirements-dev.txt").read_text(encoding="utf-8"), re.M)
+    hook = re.search(r"ruff-pre-commit\s+rev: v(\S+)", (ROOT / ".pre-commit-config.yaml").read_text(encoding="utf-8"))
+    assert pinned and hook and pinned.group(1) == hook.group(1)
