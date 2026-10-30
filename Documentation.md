@@ -786,7 +786,8 @@ ruff format .          # format every file
 ```
 
 The **lint** job runs the same checks on every push and pull request. To catch problems before you commit, install
-the [pre-commit](https://pre-commit.com/) hooks once:
+the [pre-commit](https://pre-commit.com/) hooks once. pre-commit needs Python 3.11 or newer, so
+`requirements-dev.txt` skips it on 3.10.
 
 ```powershell
 pre-commit install          # from then on, every git commit runs the checks
